@@ -12,3 +12,5 @@ https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.htm
 https://docs.oracle.com/middleware/1221/wcs/tag-ref/MISC/TimeZones.html
 
 https://docs.oracle.com/en/industries/financial-services/financial-services-cloud/communication/time-zone-ids.html
+
+http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
