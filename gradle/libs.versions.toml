@@ -1,0 +1,11 @@
+[versions]
+lombok = "1.18.36"
+junit = "5.11.4"
+jmh = "1.37"
+
+[libraries]
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+junitJupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junitPlatformLauncher = { module = "org.junit.platform:junit-platform-launcher" }
+jmhCore = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
+jmhGeneratorAnnotationProcessor = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
