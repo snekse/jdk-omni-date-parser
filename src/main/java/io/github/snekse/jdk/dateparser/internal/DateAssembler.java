@@ -8,30 +8,17 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Map;
+import java.util.OptionalInt;
 
 /**
  * Takes a token list from the Lexer and classifies tokens into date fields,
  * then assembles the final java.time result.
  *
- * Phase 1 handles: ISO 8601, RFC 2822.
+ * Phase 1: ISO 8601, RFC 2822.
+ * Phase 2: Western slash/dot/dash formats, spelled-out months, AM/PM, compact YYYYMMDD,
+ *           named TZ abbreviations, ambiguity resolution via DateOrder.
  */
 public class DateAssembler {
-
-    private static final Map<String, Integer> MONTH_NAMES = Map.ofEntries(
-            Map.entry("JANUARY", 1),  Map.entry("JAN", 1),
-            Map.entry("FEBRUARY", 2), Map.entry("FEB", 2),
-            Map.entry("MARCH", 3),    Map.entry("MAR", 3),
-            Map.entry("APRIL", 4),    Map.entry("APR", 4),
-            Map.entry("MAY", 5),
-            Map.entry("JUNE", 6),     Map.entry("JUN", 6),
-            Map.entry("JULY", 7),     Map.entry("JUL", 7),
-            Map.entry("AUGUST", 8),   Map.entry("AUG", 8),
-            Map.entry("SEPTEMBER", 9),Map.entry("SEP", 9), Map.entry("SEPT", 9),
-            Map.entry("OCTOBER", 10), Map.entry("OCT", 10),
-            Map.entry("NOVEMBER", 11),Map.entry("NOV", 11),
-            Map.entry("DECEMBER", 12),Map.entry("DEC", 12)
-    );
 
     private final List<Token> tokens;
     private final OmniDateParserConfig config;
@@ -39,6 +26,7 @@ public class DateAssembler {
 
     private int year = -1, month = -1, day = -1;
     private int hour = 0, minute = 0, second = 0, nano = 0;
+    private int amPm = 0;          // 0 = not set, 1 = PM, -1 = AM
     private ZoneOffset offset = null;  // null means "use config.defaultZone"
     private ZoneId zoneId = null;
 
@@ -60,6 +48,7 @@ public class DateAssembler {
 
     public ZonedDateTime assembleZonedDateTime() {
         classify();
+        applyAmPm();
         validate();
         return buildZonedDateTime();
     }
@@ -75,33 +64,72 @@ public class DateAssembler {
 
         Token first = tokens.get(0);
 
-        if (first.type() == TokenType.DIGIT_SEQ && first.value().length() == 4) {
-            // Starts with 4-digit year → ISO family
-            classifyIso();
+        // Compact numeric date: YYYYMMDD (8-digit single token)
+        if (first.type() == TokenType.DIGIT_SEQ && first.value().length() == 8) {
+            classifyCompact();
             return;
         }
 
+        // 4-digit year first
+        if (first.type() == TokenType.DIGIT_SEQ && first.value().length() == 4) {
+            if (tokens.size() > 1) {
+                Token second = tokens.get(1);
+                if (second.type() == TokenType.SEPARATOR && "/".equals(second.value())) {
+                    classifyWestern(); // YYYY/MM/DD
+                    return;
+                }
+                if (second.type() == TokenType.SEPARATOR && " ".equals(second.value())
+                        && tokens.size() > 2
+                        && tokens.get(2).type() == TokenType.ALPHA_SEQ
+                        && MonthNames.resolve(tokens.get(2).value()).isPresent()) {
+                    classifyYearFirstSpelled(); // 1999 January 1 ...
+                    return;
+                }
+            }
+            classifyIso(); // YYYY-MM-DD (default 4-digit start)
+            return;
+        }
+
+        // Alpha first: weekday prefix or month name
         if (first.type() == TokenType.ALPHA_SEQ) {
             String upper = first.value().toUpperCase();
-            // Skip day-of-week prefix: "Fri, ..."
             if (isWeekdayAbbr(upper) && cur + 1 < tokens.size()
                     && tokens.get(1).type() == TokenType.SEPARATOR) {
                 cur = 1; // skip weekday token (index 0)
-                // skip the comma separator and any following space
                 advanceSeparators();
                 classifyRfc2822Body();
                 return;
             }
-            // Month name first (no day-of-week): "Jan 01 1999 ..." or "January 1, 1999"
-            if (MONTH_NAMES.containsKey(upper)) {
-                classifyRfc2822Body();
+            if (MonthNames.resolve(upper).isPresent()) {
+                classifyRfc2822Body(); // January 1, 1999 ... or Jan 1, 1999 ...
                 return;
             }
         }
 
-        // Starts with DIGIT_SEQ (non-4-digit) → could be RFC 2822 without day-of-week
-        // "01 Jan 1999 23:59:00 +0000"
+        // Non-4-digit DIGIT_SEQ first
         if (first.type() == TokenType.DIGIT_SEQ) {
+            if (tokens.size() > 1) {
+                Token sep = tokens.get(1);
+                if (sep.type() == TokenType.SEPARATOR) {
+                    if ("/".equals(sep.value()) || ".".equals(sep.value())) {
+                        classifyWestern(); // DD/MM/YYYY or DD.MM.YYYY
+                        return;
+                    }
+                    if ("-".equals(sep.value()) && tokens.size() > 2) {
+                        Token afterSep = tokens.get(2);
+                        if (afterSep.type() == TokenType.DIGIT_SEQ) {
+                            classifyWestern(); // DD-MM-YYYY
+                            return;
+                        }
+                        if (afterSep.type() == TokenType.ALPHA_SEQ
+                                && MonthNames.resolve(afterSep.value()).isPresent()) {
+                            classifyDDMonYYYY(); // DD-Mon-YYYY
+                            return;
+                        }
+                    }
+                }
+            }
+            // Default: RFC 2822 style (DD Mon YYYY or Mon DD YYYY)
             classifyRfc2822Body();
             return;
         }
@@ -143,19 +171,100 @@ public class DateAssembler {
 
         // time
         parseTimeSection();
-
+        parseAmPm();
         // optional zone info after time
         parseZoneSection();
     }
 
     // -----------------------------------------------------------------------
-    // RFC 2822
+    // Western numeric formats: DD/MM/YYYY, MM/DD/YYYY, YYYY/MM/DD, DD-MM-YYYY, DD.MM.YYYY
+    // -----------------------------------------------------------------------
+
+    private void classifyWestern() {
+        int a = intOf(expect(TokenType.DIGIT_SEQ));
+
+        if (cur >= tokens.size() || tokens.get(cur).type() != TokenType.SEPARATOR) {
+            throw new DateParseException(original, "expected date separator after first component");
+        }
+        String sep = tokens.get(cur).value();
+        cur++; // consume separator
+
+        int b = intOf(expect(TokenType.DIGIT_SEQ));
+
+        // expect same separator
+        if (cur >= tokens.size() || !TokenType.SEPARATOR.equals(tokens.get(cur).type())
+                || !sep.equals(tokens.get(cur).value())) {
+            throw new DateParseException(original, "inconsistent or missing date separator");
+        }
+        cur++; // consume separator
+
+        int c = intOf(expect(TokenType.DIGIT_SEQ));
+
+        resolveThreePartNumeric(a, b, c);
+
+        skipSpaces();
+        if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DIGIT_SEQ) {
+            parseTimeSection();
+            parseAmPm();
+            parseZoneSection();
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Year-first spelled month: 1999 January 1 HH:MM:SS TZ
+    // -----------------------------------------------------------------------
+
+    private void classifyYearFirstSpelled() {
+        year = intOf(expect(TokenType.DIGIT_SEQ));
+        skipSpaces();
+        month = expectMonthName();
+        skipSpaces();
+        day = intOf(expect(TokenType.DIGIT_SEQ));
+        skipSpaces();
+        if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DIGIT_SEQ) {
+            parseTimeSection();
+            parseAmPm();
+            parseZoneSection();
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // DD-Mon-YYYY: 01-Jan-1999, 01-Dec-1999
+    // -----------------------------------------------------------------------
+
+    private void classifyDDMonYYYY() {
+        day = intOf(expect(TokenType.DIGIT_SEQ));
+        expectSeparator("-");
+        month = expectMonthName();
+        expectSeparator("-");
+        year = intOf(expect(TokenType.DIGIT_SEQ));
+        skipSpaces();
+        if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DIGIT_SEQ) {
+            parseTimeSection();
+            parseAmPm();
+            parseZoneSection();
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Compact YYYYMMDD
+    // -----------------------------------------------------------------------
+
+    private void classifyCompact() {
+        String val = expect(TokenType.DIGIT_SEQ).value();
+        year  = Integer.parseInt(val.substring(0, 4));
+        month = Integer.parseInt(val.substring(4, 6));
+        day   = Integer.parseInt(val.substring(6, 8));
+    }
+
+    // -----------------------------------------------------------------------
+    // RFC 2822 / spelled-out month body
     // -----------------------------------------------------------------------
 
     private void classifyRfc2822Body() {
         // Two forms:
         //   DD Mon YYYY HH:MM:SS ±HHMM
-        //   Mon DD YYYY HH:MM:SS ±HHMM  (less common but accepted)
+        //   Mon DD YYYY HH:MM:SS ±HHMM  (and full names: January 1, 1999 ...)
 
         skipSpaces();
         if (cur >= tokens.size()) throw new DateParseException(original, "unexpected end of input");
@@ -169,9 +278,9 @@ public class DateAssembler {
             month = expectMonthName();
             skipSpaces();
             year = intOf(expect(TokenType.DIGIT_SEQ));
-        } else if (t.type() == TokenType.ALPHA_SEQ && MONTH_NAMES.containsKey(t.value().toUpperCase())) {
+        } else if (t.type() == TokenType.ALPHA_SEQ && MonthNames.resolve(t.value()).isPresent()) {
             // Mon DD YYYY  or  Mon DD, YYYY
-            month = MONTH_NAMES.get(t.value().toUpperCase()); cur++;
+            month = MonthNames.resolve(t.value()).getAsInt(); cur++;
             skipSpaces();
             day = intOf(expect(TokenType.DIGIT_SEQ));
             // optional comma
@@ -188,9 +297,16 @@ public class DateAssembler {
         skipSpaces();
         if (cur >= tokens.size()) return; // date only
 
-        if (tokens.get(cur).type() == TokenType.DIGIT_SEQ) {
-            parseTimeSection();
+        // Skip "at" keyword (e.g., "January 1, 1999 at 11:59 p.m. PST")
+        if (tokens.get(cur).type() == TokenType.ALPHA_SEQ
+                && "AT".equals(tokens.get(cur).value().toUpperCase())) {
+            cur++;
             skipSpaces();
+        }
+
+        if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DIGIT_SEQ) {
+            parseTimeSection();
+            parseAmPm();
             parseZoneSection();
         }
     }
@@ -221,7 +337,44 @@ public class DateAssembler {
         }
     }
 
-    /** Parses optional timezone info: Z, UTC, GMT, +HHMM, -HHMM, +HH:MM, -HH:MM */
+    /**
+     * Parses optional AM/PM or a.m./p.m. marker after the time section.
+     * Sets amPm field: 1 = PM, -1 = AM, 0 = not present.
+     */
+    private void parseAmPm() {
+        if (cur >= tokens.size()) return;
+        skipSpaces();
+        if (cur >= tokens.size()) return;
+
+        Token t = tokens.get(cur);
+        if (t.type() != TokenType.ALPHA_SEQ) return;
+
+        String upper = t.value().toUpperCase();
+
+        if ("AM".equals(upper)) {
+            amPm = -1;
+            cur++;
+            return;
+        }
+        if ("PM".equals(upper)) {
+            amPm = 1;
+            cur++;
+            return;
+        }
+
+        // Check for a.m. / p.m. pattern: ALPHA("a"/"p") DOT ALPHA("m") DOT
+        if (("A".equals(upper) || "P".equals(upper))
+                && cur + 3 < tokens.size()
+                && tokens.get(cur + 1).type() == TokenType.DOT
+                && tokens.get(cur + 2).type() == TokenType.ALPHA_SEQ
+                && "M".equals(tokens.get(cur + 2).value().toUpperCase())
+                && tokens.get(cur + 3).type() == TokenType.DOT) {
+            amPm = "P".equals(upper) ? 1 : -1;
+            cur += 4;
+        }
+    }
+
+    /** Parses optional timezone info: Z, UTC, GMT, named abbr, +HHMM, -HHMM, +HH:MM, -HH:MM */
     private void parseZoneSection() {
         if (cur >= tokens.size()) return;
 
@@ -230,7 +383,7 @@ public class DateAssembler {
 
         Token t = tokens.get(cur);
 
-        // Named abbreviation: Z, UTC, GMT
+        // Named abbreviation
         if (t.type() == TokenType.ALPHA_SEQ) {
             ZoneId resolved = ZoneResolver.resolve(t.value());
             if (resolved != null) {
@@ -242,6 +395,7 @@ public class DateAssembler {
                 cur++;
                 return;
             }
+            throw new DateParseException(original, "unrecognized timezone abbreviation: " + t.value());
         }
 
         // Numeric offset: +HHMM, -HHMM
@@ -271,6 +425,76 @@ public class DateAssembler {
             digits = digits + ":" + expect(TokenType.DIGIT_SEQ).value();
         }
         return digits;
+    }
+
+    // -----------------------------------------------------------------------
+    // Ambiguity resolution
+    // -----------------------------------------------------------------------
+
+    /**
+     * Assigns year/month/day from three numeric components using heuristics first,
+     * then DateOrder from config for truly ambiguous cases.
+     */
+    private void resolveThreePartNumeric(int a, int b, int c) {
+        // 4-digit (>99) component is unambiguously year
+        if (a > 99) {
+            // YYYY/MM/DD — year is first, always YMD regardless of DateOrder
+            year = a;
+            month = b;
+            day = c;
+            return;
+        }
+        if (c > 99) {
+            year = c;
+            // Determine month and day from a and b using heuristics
+            if (a > 12) {
+                // a can't be month → a is day, b is month
+                day = a;
+                month = b;
+            } else if (b > 12) {
+                // b can't be month → b is day, a is month
+                month = a;
+                day = b;
+            } else {
+                // Truly ambiguous: use DateOrder
+                switch (config.getDateOrder()) {
+                    case MDY -> { month = a; day = b; }
+                    case DMY -> { day = a; month = b; }
+                    case YMD -> { month = a; day = b; } // year is last; for remaining use MDY
+                }
+            }
+            return;
+        }
+        // All three are small (≤99); use DateOrder with 2-digit year expansion
+        switch (config.getDateOrder()) {
+            case MDY -> { month = a; day = b; year = expandYear(c, config.getPivotYear()); }
+            case DMY -> { day = a; month = b; year = expandYear(c, config.getPivotYear()); }
+            case YMD -> { year = expandYear(a, config.getPivotYear()); month = b; day = c; }
+        }
+    }
+
+    /** Expands a 2-digit year to 4 digits using the pivot year. */
+    private static int expandYear(int twoDigit, int pivot) {
+        if (twoDigit > 99) return twoDigit; // already 4-digit
+        return twoDigit <= pivot ? 2000 + twoDigit : 1900 + twoDigit;
+    }
+
+    // -----------------------------------------------------------------------
+    // AM/PM application
+    // -----------------------------------------------------------------------
+
+    private void applyAmPm() {
+        if (amPm == 0) return;
+        if (hour > 12) {
+            throw new DateParseException(original, "a.m./p.m. with hour out of range: " + hour);
+        }
+        if (amPm == -1) {
+            // AM: 12 AM = midnight (0), 1–11 AM stay as-is
+            if (hour == 12) hour = 0;
+        } else {
+            // PM: 12 PM stays 12 (noon), 1–11 PM add 12
+            if (hour != 12) hour += 12;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -339,11 +563,11 @@ public class DateAssembler {
 
     private int expectMonthName() {
         Token t = expect(TokenType.ALPHA_SEQ);
-        Integer m = MONTH_NAMES.get(t.value().toUpperCase());
-        if (m == null) {
+        OptionalInt m = MonthNames.resolve(t.value());
+        if (m.isEmpty()) {
             throw new DateParseException(original, "unrecognized month name: " + t.value());
         }
-        return m;
+        return m.getAsInt();
     }
 
     private void skipSpaces() {

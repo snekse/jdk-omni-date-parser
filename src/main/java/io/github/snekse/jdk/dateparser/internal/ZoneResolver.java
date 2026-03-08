@@ -2,24 +2,15 @@ package io.github.snekse.jdk.dateparser.internal;
 
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.Map;
 
 /**
  * Maps named timezone abbreviations and offset strings to ZoneOffset/ZoneId.
- * Phase 1: handles Z, UTC, GMT only.
- * Phase 2: full TZ abbreviation list.
  */
 public class ZoneResolver {
 
-    private static final Map<String, ZoneId> KNOWN = Map.of(
-            "Z",   ZoneOffset.UTC,
-            "UTC", ZoneOffset.UTC,
-            "GMT", ZoneOffset.UTC
-    );
-
     /** Returns the ZoneId for a known abbreviation, or null if not recognized. */
     public static ZoneId resolve(String abbr) {
-        return KNOWN.get(abbr.toUpperCase());
+        return TzAbbreviations.resolve(abbr).orElse(null);
     }
 
     /**
