@@ -20,7 +20,7 @@ import java.util.Locale;
  * not part of the shipped library.
  *
  * <p>The list covers all 19 inputs in {@link BenchmarkInputs#ALL}.
- * Total formatters: 16 (after preprocessing normalizes a.m./p.m. and "at " tokens).
+ * Total formatters: 17 (after preprocessing normalizes a.m./p.m. and "at " tokens).
  */
 public final class ShotgunDateParser {
 
@@ -107,9 +107,7 @@ public final class ShotgunDateParser {
     private static String preprocess(String input) {
         return input
             .replace(" at ", " ")
-            .replace("p.m.", "PM")
-            .replace("a.m.", "AM")
-            .replace("P.M.", "PM")
-            .replace("A.M.", "AM");
+            .replaceAll("(?i)p\\.m\\.", "PM")
+            .replaceAll("(?i)a\\.m\\.", "AM");
     }
 }
