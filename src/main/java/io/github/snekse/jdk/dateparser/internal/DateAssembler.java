@@ -18,8 +18,17 @@ import java.util.OptionalInt;
  * Phase 1: ISO 8601, RFC 2822.
  * Phase 2: Western slash/dot/dash formats, spelled-out months, AM/PM, compact YYYYMMDD,
  *           named TZ abbreviations, ambiguity resolution via DateOrder.
+ * Phase 2+: CJK date separators 年月日時分秒 in label-after and label-before orderings.
  */
 public class DateAssembler {
+
+    // CJK date/time unit labels — used as separators in East Asian date formats
+    private static final String CJK_YEAR   = "年";
+    private static final String CJK_MONTH  = "月";
+    private static final String CJK_DAY    = "日";
+    private static final String CJK_HOUR   = "時";
+    private static final String CJK_MINUTE = "分";
+    private static final String CJK_SECOND = "秒";
 
     private final List<Token> tokens;
     private final OmniDateParserConfig config;
@@ -91,6 +100,14 @@ public class DateAssembler {
                     classifyWestern(); // YYYY/MM/DD
                     return;
                 }
+                if (second.type() == TokenType.DOT) {
+                    classifyWestern(); // YYYY.MM.DD
+                    return;
+                }
+                if (second.type() == TokenType.ALPHA_SEQ && CJK_YEAR.equals(second.value())) {
+                    classifyCjkLabelAfter(); // 1999年12月31日 ...
+                    return;
+                }
                 if (second.type() == TokenType.SEPARATOR && " ".equals(second.value())
                         && tokens.size() > 2
                         && tokens.get(2).type() == TokenType.ALPHA_SEQ
@@ -103,8 +120,12 @@ public class DateAssembler {
             return;
         }
 
-        // Alpha first: weekday prefix or month name
+        // Alpha first: weekday prefix, month name, or CJK year label
         if (first.type() == TokenType.ALPHA_SEQ) {
+            if (CJK_YEAR.equals(first.value())) {
+                classifyCjkLabelBefore(); // 年1999月12日31 ...
+                return;
+            }
             String upper = first.value().toUpperCase();
             if (isWeekdayAbbr(upper) && cur + 1 < tokens.size()
                     && tokens.get(1).type() == TokenType.SEPARATOR) {
@@ -124,8 +145,8 @@ public class DateAssembler {
             if (tokens.size() > 1) {
                 Token sep = tokens.get(1);
                 if (sep.type() == TokenType.SEPARATOR) {
-                    if ("/".equals(sep.value()) || ".".equals(sep.value())) {
-                        classifyWestern(); // DD/MM/YYYY or DD.MM.YYYY
+                    if ("/".equals(sep.value())) {
+                        classifyWestern(); // DD/MM/YYYY
                         return;
                     }
                     if ("-".equals(sep.value()) && tokens.size() > 2) {
@@ -140,6 +161,10 @@ public class DateAssembler {
                             return;
                         }
                     }
+                }
+                if (sep.type() == TokenType.DOT) {
+                    classifyWestern(); // DD.MM.YYYY
+                    return;
                 }
             }
             // Default: RFC 2822 style (DD Mon YYYY or Mon DD YYYY)
@@ -196,17 +221,16 @@ public class DateAssembler {
     private void classifyWestern() {
         int a = intOf(expect(TokenType.DIGIT_SEQ));
 
-        if (cur >= tokens.size() || tokens.get(cur).type() != TokenType.SEPARATOR) {
+        if (cur >= tokens.size() || !isDateSepToken(tokens.get(cur))) {
             throw new DateParseException(original, "expected date separator after first component");
         }
-        String sep = tokens.get(cur).value();
+        String sep = dateSepValue(tokens.get(cur));
         cur++; // consume separator
 
         int b = intOf(expect(TokenType.DIGIT_SEQ));
 
         // expect same separator
-        if (cur >= tokens.size() || !TokenType.SEPARATOR.equals(tokens.get(cur).type())
-                || !sep.equals(tokens.get(cur).value())) {
+        if (cur >= tokens.size() || !matchesSep(tokens.get(cur), sep)) {
             throw new DateParseException(original, "inconsistent or missing date separator");
         }
         cur++; // consume separator
@@ -260,7 +284,7 @@ public class DateAssembler {
     }
 
     // -----------------------------------------------------------------------
-    // Compact YYYYMMDD
+    // Compact YYYYMMDD and YYYYMMDDTHHmmSS
     // -----------------------------------------------------------------------
 
     private void classifyCompact() {
@@ -268,6 +292,18 @@ public class DateAssembler {
         year  = Integer.parseInt(val.substring(0, 4));
         month = Integer.parseInt(val.substring(4, 6));
         day   = Integer.parseInt(val.substring(6, 8));
+
+        // Optional compact time: T_LITERAL followed by HHMMSS or HHMM digits
+        if (cur < tokens.size() && tokens.get(cur).type() == TokenType.T_LITERAL) {
+            cur++; // consume T
+            if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DIGIT_SEQ) {
+                String time = tokens.get(cur++).value();
+                if (time.length() >= 2) hour   = Integer.parseInt(time.substring(0, 2));
+                if (time.length() >= 4) minute = Integer.parseInt(time.substring(2, 4));
+                if (time.length() >= 6) second = Integer.parseInt(time.substring(4, 6));
+            }
+            parseZoneSection();
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -316,9 +352,13 @@ public class DateAssembler {
             month = expectMonthName();
             skipSpaces();
             year = intOf(expect(TokenType.DIGIT_SEQ));
-        } else if (t.type() == TokenType.ALPHA_SEQ && MonthNames.resolve(t.value()).isPresent()) {
+        } else if (t.type() == TokenType.ALPHA_SEQ) {
+            OptionalInt monthOpt = MonthNames.resolve(t.value());
+            if (monthOpt.isEmpty()) {
+                throw new DateParseException(original, "expected day number or month name, got: " + t.value());
+            }
             // Mon DD YYYY  or  Mon DD, YYYY
-            month = MonthNames.resolve(t.value()).getAsInt(); cur++;
+            month = monthOpt.getAsInt(); cur++;
             skipSpaces();
             day = intOf(expect(TokenType.DIGIT_SEQ));
             // optional comma
@@ -350,6 +390,70 @@ public class DateAssembler {
     }
 
     // -----------------------------------------------------------------------
+    // CJK date formats: 年月日時分秒
+    //
+    // Label-after:  1999年12月31日 00時00分00秒 JST
+    // Label-before: 年1999月12日31 時00分00秒00
+    // -----------------------------------------------------------------------
+
+    /**
+     * Parses CJK label-after format: digits followed by their unit label.
+     * Example: {@code 1999年12月31日 00時00分00秒 JST}
+     * Entry: cur=0, tokens[0]=DIGIT_SEQ("1999"), tokens[1]=ALPHA_SEQ("年")
+     */
+    private void classifyCjkLabelAfter() {
+        year = intOf(expect(TokenType.DIGIT_SEQ));
+        expectCjkLabel(CJK_YEAR);
+        month = intOf(expect(TokenType.DIGIT_SEQ));
+        expectCjkLabel(CJK_MONTH);
+        day = intOf(expect(TokenType.DIGIT_SEQ));
+        expectCjkLabel(CJK_DAY);
+
+        skipSpaces();
+        if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DIGIT_SEQ) {
+            hour = intOf(expect(TokenType.DIGIT_SEQ));
+            expectCjkLabel(CJK_HOUR);
+            minute = intOf(expect(TokenType.DIGIT_SEQ));
+            expectCjkLabel(CJK_MINUTE);
+            if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DIGIT_SEQ) {
+                second = intOf(expect(TokenType.DIGIT_SEQ));
+                // optional trailing 秒
+                if (cur < tokens.size() && isCjkToken(tokens.get(cur), CJK_SECOND)) cur++;
+            }
+        }
+
+        parseZoneSection();
+    }
+
+    /**
+     * Parses CJK label-before format: unit label followed by its digits.
+     * Example: {@code 年1999月12日31 時00分00秒00}
+     * Entry: cur=0, tokens[0]=ALPHA_SEQ("年")
+     */
+    private void classifyCjkLabelBefore() {
+        expectCjkLabel(CJK_YEAR);
+        year = intOf(expect(TokenType.DIGIT_SEQ));
+        expectCjkLabel(CJK_MONTH);
+        month = intOf(expect(TokenType.DIGIT_SEQ));
+        expectCjkLabel(CJK_DAY);
+        day = intOf(expect(TokenType.DIGIT_SEQ));
+
+        skipSpaces();
+        if (cur < tokens.size() && isCjkToken(tokens.get(cur), CJK_HOUR)) {
+            cur++;
+            hour = intOf(expect(TokenType.DIGIT_SEQ));
+            expectCjkLabel(CJK_MINUTE);
+            minute = intOf(expect(TokenType.DIGIT_SEQ));
+            if (cur < tokens.size() && isCjkToken(tokens.get(cur), CJK_SECOND)) {
+                cur++;
+                second = intOf(expect(TokenType.DIGIT_SEQ));
+            }
+        }
+
+        parseZoneSection();
+    }
+
+    // -----------------------------------------------------------------------
     // Time + Zone helpers
     // -----------------------------------------------------------------------
 
@@ -368,9 +472,9 @@ public class DateAssembler {
         if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DOT) {
             cur++;
             String frac = expect(TokenType.DIGIT_SEQ).value();
-            // normalize to 9 digits (nanoseconds)
-            while (frac.length() < 9) frac = frac + "0";
-            if (frac.length() > 9) frac = frac.substring(0, 9);
+            // normalize to 9 digits (nanoseconds) — one allocation, no loop
+            if (frac.length() < 9) frac = (frac + "000000000").substring(0, 9);
+            else if (frac.length() > 9) frac = frac.substring(0, 9);
             nano = Integer.parseInt(frac);
         }
     }
@@ -412,7 +516,7 @@ public class DateAssembler {
         }
     }
 
-    /** Parses optional timezone info: Z, UTC, GMT, named abbr, +HHMM, -HHMM, +HH:MM, -HH:MM */
+    /** Parses optional timezone info: Z, UTC, GMT, named abbr, +HHMM, -HHMM, +HH:MM, -HH:MM, GMT+HH:MM */
     private void parseZoneSection() {
         if (cur >= tokens.size()) return;
 
@@ -421,8 +525,31 @@ public class DateAssembler {
 
         Token t = tokens.get(cur);
 
-        // Named abbreviation
+        // Named abbreviation (including GMT/UTC with optional offset suffix)
         if (t.type() == TokenType.ALPHA_SEQ) {
+            String upper = t.value().toUpperCase();
+
+            // GMT+HH:MM / UTC+HH:MM / GMT-HH:MM / UTC-HH:MM — offset is authoritative
+            if ("GMT".equals(upper) || "UTC".equals(upper)) {
+                cur++; // consume GMT/UTC
+                if (cur < tokens.size()) {
+                    Token next = tokens.get(cur);
+                    if (next.type() == TokenType.SIGN) {
+                        char sign = next.value().charAt(0);
+                        cur++;
+                        offset = ZoneResolver.parseNumericOffset(sign, parseOffsetDigits());
+                        return;
+                    }
+                    if (next.type() == TokenType.SEPARATOR && "-".equals(next.value())) {
+                        cur++;
+                        offset = ZoneResolver.parseNumericOffset('-', parseOffsetDigits());
+                        return;
+                    }
+                }
+                offset = ZoneOffset.UTC;
+                return;
+            }
+
             ZoneId resolved = ZoneResolver.resolve(t.value());
             if (resolved != null) {
                 if (resolved instanceof ZoneOffset zo) {
@@ -587,17 +714,23 @@ public class DateAssembler {
         return t;
     }
 
-    private void expectSeparator(String value) {
+    private void expectToken(TokenType type, String value) {
         if (cur >= tokens.size()) {
-            throw new DateParseException(original, "unexpected end of input, expected separator '" + value + "'");
+            throw new DateParseException(original,
+                    "unexpected end of input, expected " + type + "('" + value + "')");
         }
         Token t = tokens.get(cur);
-        if (t.type() != TokenType.SEPARATOR || !value.equals(t.value())) {
+        if (t.type() != type || !value.equals(t.value())) {
             throw new DateParseException(original,
-                    "expected separator '" + value + "' at position " + t.position() + ", got: " + t.value());
+                    "expected " + type + "('" + value + "') at position " + t.position()
+                            + ", got " + t.type() + "('" + t.value() + "')");
         }
         cur++;
     }
+
+    private void expectSeparator(String value) { expectToken(TokenType.SEPARATOR, value); }
+
+    private void expectCjkLabel(String label)  { expectToken(TokenType.ALPHA_SEQ, label); }
 
     private int expectMonthName() {
         Token t = expect(TokenType.ALPHA_SEQ);
@@ -623,8 +756,34 @@ public class DateAssembler {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Static helpers
+    // -----------------------------------------------------------------------
+
     private static int intOf(Token t) {
         return Integer.parseInt(t.value());
+    }
+
+    /** Returns true if the token can serve as a date component separator (/, -, .). */
+    private static boolean isDateSepToken(Token t) {
+        if (t.type() == TokenType.DOT) return true;
+        if (t.type() != TokenType.SEPARATOR) return false;
+        return "/".equals(t.value()) || "-".equals(t.value());
+    }
+
+    /** Returns the separator string value for a date separator token (DOT → "."). */
+    private static String dateSepValue(Token t) {
+        return t.type() == TokenType.DOT ? "." : t.value();
+    }
+
+    /** Returns true if the token matches the given separator string. */
+    private static boolean matchesSep(Token t, String sep) {
+        if (".".equals(sep)) return t.type() == TokenType.DOT;
+        return t.type() == TokenType.SEPARATOR && sep.equals(t.value());
+    }
+
+    private static boolean isCjkToken(Token t, String label) {
+        return t.type() == TokenType.ALPHA_SEQ && label.equals(t.value());
     }
 
     private static boolean isWeekdayAbbr(String upper) {

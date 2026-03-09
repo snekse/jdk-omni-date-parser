@@ -1,0 +1,38 @@
+# CJK full-width period (。) and other non-standard CJK punctuation — not supported
+3。31.2014
+
+# German Uhr/MEZ — not in scope per contract
+01.01.1999 23:59 Uhr CET
+31.12.1999 00:00 Uhr MEZ
+31.12.1999 12:00:00 Uhr MEZ
+31.12.1999 23:59:59 Uhr MEZ
+
+# "noon" keyword — not in scope per contract
+January 1, 1999 at 12:00 noon EST
+31 December 1999 12:00 noon UTC
+December 1, 1999 12:00 noon
+
+# "o'clock" keyword — not in scope per contract
+12 o'clock PM, PDT
+
+# Time-only without date — not in scope per contract
+0:08 PM, CEST
+
+# Ordinal day suffixes (1st, 2nd, 3rd, 7th, etc.) — not in scope per contract
+October 7th, 1970
+
+# RFC 850 (full day name + dash-Mon + 2-digit year) — not in scope per contract
+Monday, 02-Jan-06 15:04:05 MST
+
+# Compact YYYYMMDDHHmmss (14-char) — only 8-char YYYYMMDD is in scope
+20140722105203
+
+# Apostrophe before 2-digit year — not in scope per contract
+oct 7, '70
+
+# Period-suffix on month abbreviation — not in scope per contract
+oct. 7, 1970
+oct. 7, 70
+
+# ISO with spelled/abbreviated month name (ISO uses numeric months only)
+2013-Feb-03

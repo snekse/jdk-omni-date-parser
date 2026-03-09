@@ -85,12 +85,13 @@ implementation("io.github.snekse:jdk-omni-date-parser:0.1.0-SNAPSHOT")
 |---|---------------------------------------------------------------------------------------------------------------------------|
 | ISO 8601 | `2024-01-15T10:30:00Z`, `2024-01-15T10:30:00+05:30`                                                                       |
 | RFC 2822 | `Fri, 01 Jan 1999 23:59:00 +0000`                                                                                         |
-| Western numeric (slash/dash/dot) | `01/02/2024`, `15-06-2024`, `01.02.2024`                                                                                  |
+| Western numeric (slash/dash/dot) | `01/02/2024`, `15-06-2024`, `01.02.2024`, `2024.03.30`                                                                    |
 | English spelled-out months | `March 14, 2024`, `14 Mar 2024`, `Jan 1 99`                                                                               |
 | 12-hour AM/PM | `01/02/2024 3:04:05 PM`, `1:30 a.m.`                                                                                      |
 | Named TZ abbreviations (47) | `EST`, `PST`, `CET`, `JST`, `HKT`, `KST`, `NZDT`                                                                          |
 | UTC offsets | `+0500`, `+05:30`, `GMT+08:00`                                                                                            |
-| Compact numeric | `19990101`, `19990101T235900`                                                                                             |
+| CJK date separators (年月日時分秒) | `1999年12月31日 00時00分00秒 JST`, `年1999月12日31 時00分00秒00`                                                              |
+| Compact numeric | `19990101`, `19990101T235900`, `19990101T235900Z`, `19990101T235900+0500`                                                  |
 | Unix timestamps | (of length 10, 13, 16, or 19) `1332151919` (s), `1384216367189` (ms), `1384216367111222` (µs), `1384216367111222333` (ns) |
 
 See [`src/test/resources/examples.txt`](src/test/resources/examples.txt) for the exhaustive list.
@@ -117,8 +118,8 @@ To reproduce: `./gradlew jmh`
 
 ## Not Supported
 
-- CJK date formats
-- German `Uhr` / `MEZ` conventions
+- Some CJK date formats
+- Non-English or common conventions  (e.g. `Uhr` / `MEZ`)
 - Natural language (e.g. "yesterday", "noon", "midnight")
 - Non-English month names
 - Date-to-string formatting (this is a parser only)
