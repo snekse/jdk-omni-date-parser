@@ -3,6 +3,7 @@ package io.github.snekse.jdk.dateparser.internal;
 import io.github.snekse.jdk.dateparser.DateParseException;
 import io.github.snekse.jdk.dateparser.OmniDateParserConfig;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -63,6 +64,18 @@ public class DateAssembler {
         }
 
         Token first = tokens.get(0);
+
+        // Unix timestamp: single DIGIT_SEQ token with 10, 13, 16, or 19 digits
+        if (tokens.size() == 1 && first.type() == TokenType.DIGIT_SEQ) {
+            int len = first.value().length();
+            if (len == 10 || len == 13 || len == 16 || len == 19) {
+                classifyUnixTimestamp(first.value(), len);
+                return;
+            }
+            if (len > 8) {
+                throw new DateParseException(original, "unrecognized numeric format (" + len + " digits)");
+            }
+        }
 
         // Compact numeric date: YYYYMMDD (8-digit single token)
         if (first.type() == TokenType.DIGIT_SEQ && first.value().length() == 8) {
@@ -255,6 +268,31 @@ public class DateAssembler {
         year  = Integer.parseInt(val.substring(0, 4));
         month = Integer.parseInt(val.substring(4, 6));
         day   = Integer.parseInt(val.substring(6, 8));
+    }
+
+    // -----------------------------------------------------------------------
+    // Unix timestamp
+    // -----------------------------------------------------------------------
+
+    private void classifyUnixTimestamp(String digits, int length) {
+        long val = Long.parseLong(digits);
+        Instant instant = switch (length) {
+            case 10 -> Instant.ofEpochSecond(val);
+            case 13 -> Instant.ofEpochMilli(val);
+            case 16 -> Instant.ofEpochSecond(val / 1_000_000, (val % 1_000_000) * 1000);
+            case 19 -> Instant.ofEpochSecond(val / 1_000_000_000, val % 1_000_000_000);
+            default -> throw new DateParseException(original, "unexpected digit length for unix timestamp: " + length);
+        };
+        ZonedDateTime zdt = instant.atZone(ZoneOffset.UTC);
+        year   = zdt.getYear();
+        month  = zdt.getMonthValue();
+        day    = zdt.getDayOfMonth();
+        hour   = zdt.getHour();
+        minute = zdt.getMinute();
+        second = zdt.getSecond();
+        nano   = zdt.getNano();
+        offset = ZoneOffset.UTC;
+        zoneId = null;
     }
 
     // -----------------------------------------------------------------------

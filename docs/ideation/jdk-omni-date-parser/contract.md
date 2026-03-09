@@ -28,7 +28,7 @@ The goal is a single library that absorbs this complexity: a developer passes an
 - [x] `DateOrder.YMD` config parses `10/10/10` as October 10, 2010 (year=10 → 2010, month=10, day=10)
 - [x] Unparseable input throws unchecked `DateParseException` with a descriptive message
 - [x] All in-scope formats from `examples.txt` parse without error under default config
-- [ ] All formats in the sisyphsu showcase parse without error — **partially met**: all in-scope showcase formats work, but some showcase entries (CJK, Unix timestamps, Go monotonic clock suffixes, year-only, ordinal suffixes like "7th") fall outside our stated scope boundaries
+- [ ] All formats in the sisyphsu showcase parse without error — **partially met**: all in-scope showcase formats work, but some showcase entries (CJK, Go monotonic clock suffixes, year-only, ordinal suffixes like "7th") fall outside our stated scope boundaries
 - [x] JMH benchmarks run via `./gradlew jmh` and include three competitors: `OmniDateParser`, a shotgun implementation, and a single hand-crafted `DateTimeFormatter`
 - [x] Benchmark results show meaningful throughput advantage of lexer over shotgun on a mixed-format input set
 - [x] Library compiles and all tests pass on JDK 21 via `./gradlew test`
@@ -52,6 +52,7 @@ The goal is a single library that absorbs this complexity: a developer passes an
   - Named timezone abbreviations: EST, PST, CET, JST, HKT, NZDT, WET, BST, KST, etc.
   - UTC numeric offsets: `+0500`, `+05:30`, `-0500`, `GMT+08:00`
   - Compact numeric: `19990101`
+  - Unix timestamps: 10-digit (seconds), 13-digit (milliseconds), 16-digit (microseconds), 19-digit (nanoseconds) — always UTC, detected by digit count on a single numeric token
 - **`OmniDateParserConfig`**: `DateOrder` enum (`MDY` default — only consulted for genuinely ambiguous inputs), `defaultZone` (`ZoneId`, default `ZoneOffset.UTC`, supports half-hour and 45-minute offsets), `pivotYear` (2-digit year cutoff, default 70)
 - **`toLocalDate()`**: silently strips time and timezone — the input's declared timezone determines which calendar date it is
 - **Benchmarks**: JMH suite with `OmniDateParser` vs shotgun (sequential formatter tries + exception catching) vs single known `DateTimeFormatter`; run via `./gradlew jmh`
