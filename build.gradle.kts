@@ -1,7 +1,7 @@
 plugins {
     java
     `java-library`
-    // TODO Phase 3: id("io.github.reyerizo.jmh") version "0.8.2"
+    id("me.champeau.jmh") version "0.7.2"
     `maven-publish`
     signing
 }
@@ -27,22 +27,56 @@ dependencies {
 
     testImplementation(libs.junitJupiter)
     testRuntimeOnly(libs.junitPlatformLauncher)
+
+    jmh(libs.jmhCore)
+    jmhAnnotationProcessor(libs.jmhGeneratorAnnotationProcessor)
 }
 
 tasks.test {
     useJUnitPlatform()
 }
 
-// TODO: group ID, description, SCM, developer info for Maven Central
+jmh {
+    warmupIterations = 3
+    iterations = 5
+    fork = 1
+    resultFormat = "TEXT"
+    benchmarkMode = listOf("thrpt")
+}
+
 publishing {
     publications {
         create<MavenPublication>("mavenJava") {
             from(components["java"])
+            groupId = "io.github.snekse"
+            artifactId = "jdk-omni-date-parser"
+            version = project.version.toString()
+
             pom {
                 name = "jdk-omni-date-parser"
-                description = "Lenient JDK-based date parser that converts almost any date/time string to java.time results"
-                // TODO: fill in url, licenses, developers, scm before first release
+                description = "A lenient universal date parser for JVM languages"
+                url = "https://github.com/snekse/jdk-omni-date-parser"
+                licenses {
+                    license {
+                        name = "Apache License, Version 2.0"
+                        url = "https://www.apache.org/licenses/LICENSE-2.0"
+                    }
+                }
+                developers {
+                    developer { id = "snekse" }
+                }
+                scm {
+                    connection = "scm:git:git://github.com/snekse/jdk-omni-date-parser.git"
+                    url = "https://github.com/snekse/jdk-omni-date-parser"
+                }
             }
         }
     }
+    repositories {
+        // TODO: configure Sonatype OSSRH when publishing
+    }
 }
+
+// Signing — required for Maven Central
+// signing { sign(publishing.publications["mavenJava"]) }
+// TODO: uncomment and configure signing key when publishing
