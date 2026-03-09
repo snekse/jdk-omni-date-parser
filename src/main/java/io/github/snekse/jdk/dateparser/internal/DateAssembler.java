@@ -72,7 +72,7 @@ public class DateAssembler {
             throw new DateParseException(original, "no tokens — input contains no recognizable date components");
         }
 
-        Token first = tokens.get(0);
+        Token first = tokens.getFirst();
 
         // Unix timestamp: single DIGIT_SEQ token with 10, 13, 16, or 19 digits
         if (tokens.size() == 1 && first.type() == TokenType.DIGIT_SEQ) {
@@ -104,7 +104,7 @@ public class DateAssembler {
                     classifyWestern(); // YYYY.MM.DD
                     return;
                 }
-                if (second.type() == TokenType.ALPHA_SEQ && CJK_YEAR.equals(second.value())) {
+                if (isCjkToken(second, CJK_YEAR)) {
                     classifyCjkLabelAfter(); // 1999年12月31日 ...
                     return;
                 }
@@ -224,7 +224,8 @@ public class DateAssembler {
         if (cur >= tokens.size() || !isDateSepToken(tokens.get(cur))) {
             throw new DateParseException(original, "expected date separator after first component");
         }
-        String sep = dateSepValue(tokens.get(cur));
+        Token sepToken = tokens.get(cur);
+        String sep = dateSepValue(sepToken);
         cur++; // consume separator
 
         int b = intOf(expect(TokenType.DIGIT_SEQ));
@@ -377,7 +378,7 @@ public class DateAssembler {
 
         // Skip "at" keyword (e.g., "January 1, 1999 at 11:59 p.m. PST")
         if (tokens.get(cur).type() == TokenType.ALPHA_SEQ
-                && "AT".equals(tokens.get(cur).value().toUpperCase())) {
+                && "AT".equalsIgnoreCase(tokens.get(cur).value())) {
             cur++;
             skipSpaces();
         }
@@ -509,7 +510,7 @@ public class DateAssembler {
                 && cur + 3 < tokens.size()
                 && tokens.get(cur + 1).type() == TokenType.DOT
                 && tokens.get(cur + 2).type() == TokenType.ALPHA_SEQ
-                && "M".equals(tokens.get(cur + 2).value().toUpperCase())
+                && "M".equalsIgnoreCase(tokens.get(cur + 2).value())
                 && tokens.get(cur + 3).type() == TokenType.DOT) {
             amPm = "P".equals(upper) ? 1 : -1;
             cur += 4;
