@@ -354,8 +354,8 @@ publishing {
 
 ## Open Items
 
-- [ ] Add Apache 2.0 `LICENSE` file to repo root and `NOTICE` file before first Maven Central release
-- [ ] Determine Maven Central publishing workflow (Sonatype OSSRH vs Central Portal) and add to a future spec
+- [X] Add Apache 2.0 `LICENSE` file to repo root and `NOTICE` file before first Maven Central release
+- [x] Determine Maven Central publishing workflow (Sonatype OSSRH vs Central Portal) and add to a future spec → **Central Portal chosen; see spec-phase-4.md**
 
 ---
 

@@ -20,19 +20,19 @@ The goal is a single library that absorbs this complexity: a developer passes an
 
 ## Success Criteria
 
-- [ ] `OmniDateParser.toZonedDateTime("1999-01-01T00:00:00Z")` returns `1999-01-01T00:00:00Z`
-- [ ] `OmniDateParser.toLocalDate("January 31, 1999")` returns `1999-01-31`
-- [ ] `OmniDateParser.toInstant("Fri, 01 Jan 1999 23:59:00 +0000")` returns correct `Instant`
-- [ ] `DateOrder.MDY` config parses `10/10/10` as October 10, 2010
-- [ ] `DateOrder.DMY` config parses `10/10/10` as October 10, 2010 (day=10, month=10, year=10 → 2010)
-- [ ] `DateOrder.YMD` config parses `10/10/10` as October 10, 2010 (year=10 → 2010, month=10, day=10)
-- [ ] Unparseable input throws unchecked `DateParseException` with a descriptive message
-- [ ] All in-scope formats from `examples.txt` parse without error under default config
-- [ ] All formats in the sisyphsu showcase parse without error
-- [ ] JMH benchmarks run via `./gradlew jmh` and include three competitors: `OmniDateParser`, a shotgun implementation, and a single hand-crafted `DateTimeFormatter`
-- [ ] Benchmark results show meaningful throughput advantage of lexer over shotgun on a mixed-format input set
-- [ ] Library compiles and all tests pass on JDK 21 via `./gradlew test`
-- [ ] Multiple threads can share one `OmniDateParser` instance without synchronization (validated by a concurrency test)
+- [x] `OmniDateParser.toZonedDateTime("1999-01-01T00:00:00Z")` returns `1999-01-01T00:00:00Z`
+- [x] `OmniDateParser.toLocalDate("January 31, 1999")` returns `1999-01-31`
+- [x] `OmniDateParser.toInstant("Fri, 01 Jan 1999 23:59:00 +0000")` returns correct `Instant`
+- [x] `DateOrder.MDY` config parses `10/10/10` as October 10, 2010
+- [x] `DateOrder.DMY` config parses `10/10/10` as October 10, 2010 (day=10, month=10, year=10 → 2010)
+- [x] `DateOrder.YMD` config parses `10/10/10` as October 10, 2010 (year=10 → 2010, month=10, day=10)
+- [x] Unparseable input throws unchecked `DateParseException` with a descriptive message
+- [x] All in-scope formats from `examples.txt` parse without error under default config
+- [ ] All formats in the sisyphsu showcase parse without error — **partially met**: all in-scope showcase formats work, but some showcase entries (CJK, Unix timestamps, Go monotonic clock suffixes, year-only, ordinal suffixes like "7th") fall outside our stated scope boundaries
+- [x] JMH benchmarks run via `./gradlew jmh` and include three competitors: `OmniDateParser`, a shotgun implementation, and a single hand-crafted `DateTimeFormatter`
+- [x] Benchmark results show meaningful throughput advantage of lexer over shotgun on a mixed-format input set
+- [x] Library compiles and all tests pass on JDK 21 via `./gradlew test`
+- [x] Multiple threads can share one `OmniDateParser` instance without synchronization (validated by a concurrency test)
 
 ## Scope Boundaries
 
@@ -94,9 +94,10 @@ The following rows from `examples.txt` are excluded from the test fixture (AI-ge
 ### Dependency Graph
 
 ```
-Phase 1: Foundation + Core Lexer + ISO 8601 / RFC 2822  (blocking)
-  └── Phase 2: Western Formats + Ambiguity Resolution    (blocked by Phase 1)
-        └── Phase 3: Benchmarks + Polish + Publishing    (blocked by Phase 2)
+Phase 1: Foundation + Core Lexer + ISO 8601 / RFC 2822  (blocking)          ✅
+  └── Phase 2: Western Formats + Ambiguity Resolution    (blocked by Phase 1) ✅
+        └── Phase 3: Benchmarks + Polish + Publishing    (blocked by Phase 2) ✅
+              └── Phase 4: Maven Central Publishing Pipeline (blocked by Phase 3)
 ```
 
 ### Execution Steps
@@ -120,3 +121,9 @@ Phase 1: Foundation + Core Lexer + ISO 8601 / RFC 2822  (blocking)
    /execute-spec docs/ideation/jdk-omni-date-parser/spec-phase-3.md
    ```
    Deliverable: JMH benchmarks (`OmniDateParser` vs shotgun vs single formatter), Javadoc on public API, Maven Central publishing scaffold.
+
+4. **Phase 4** — Maven Central Publishing Pipeline _(blocked by Phase 3)_
+   ```bash
+   /execute-spec docs/ideation/jdk-omni-date-parser/spec-phase-4.md
+   ```
+   Deliverable: GPG signing, Central Portal plugin, CI/CD workflows (build + release), versioning from git tags.

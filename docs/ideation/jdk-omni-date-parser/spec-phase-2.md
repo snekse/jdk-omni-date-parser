@@ -321,7 +321,7 @@ class ConcurrencyTest {
 
 ## Open Items
 
-- [ ] Verify final TZ abbreviation list covers all formats in the sisyphsu showcase not already in `examples.txt`
+- [X] Verify final TZ abbreviation list covers all formats in the sisyphsu showcase not already in `examples.txt`
 
 ---
 

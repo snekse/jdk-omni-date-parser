@@ -369,7 +369,7 @@ public class DateAssembler {
 
 ## Open Items
 
-- [ ] Confirm Apache 2.0 `LICENSE` file is added to the repo root before first release
+- [X] Confirm Apache 2.0 `LICENSE` file is added to the repo root before first release
 
 ---
 
