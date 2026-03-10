@@ -34,6 +34,8 @@ public final class BenchmarkInputs {
         "January 31, 1999 12:00 p.m.",
         // Year-first
         "1999 January 1 00:00:00 UTC",
+        // RFC 850 (obsolete HTTP format)
+        "Sunday, 06-Nov-94 08:49:37 GMT",
         // No timezone (date only)
         "1999-01-31",
         "19990101"

@@ -9,7 +9,7 @@ A lenient JDK date/time parser that converts almost any date string to `java.tim
 
 Most projects handle multiple unknown date formats with the "shotgun" approach: try a list of `DateTimeFormatter` patterns in sequence, catching exceptions on each miss until one succeeds. This is slow, verbose, and brittle — every new format means another pattern to maintain.
 
-**jdk-omni-date-parser** replaces all of that with a single-pass lexer and state machine. One call, no format patterns, pure `java.time` output. It handles ISO 8601, RFC 2822, slash/dash/dot separators, spelled-out months, AM/PM, 47 named timezone abbreviations, and more — running at ~1,089k ops/s, roughly **25x faster** than the shotgun approach and matching the throughput of a hand-picked single date parser.
+**jdk-omni-date-parser** replaces all of that with a single-pass lexer and state machine. One call, no format patterns, pure `java.time` output. It handles ISO 8601 (including week dates, ordinal dates, and RFC 9557 annotations), RFC 2822, RFC 850, slash/dash/dot separators, spelled-out months, AM/PM, 47 named timezone abbreviations, and more — running at ~1,421k ops/s, roughly **28x faster** than the shotgun approach and matching the throughput of a hand-picked single date parser.
 
 Because this matches the throughput of a single known date parser, this library also works great for systems that have a handful of known date patterns without the need of declaring each.
 
@@ -81,18 +81,22 @@ implementation("io.github.snekse:jdk-omni-date-parser:0.1.0-SNAPSHOT")
 
 ## Supported Formats
 
-| Format Family | Examples                                                                                                                  |
-|---|---------------------------------------------------------------------------------------------------------------------------|
-| ISO 8601 | `2024-01-15T10:30:00Z`, `2024-01-15T10:30:00+05:30`                                                                       |
-| RFC 2822 | `Fri, 01 Jan 1999 23:59:00 +0000`                                                                                         |
-| Western numeric (slash/dash/dot) | `01/02/2024`, `15-06-2024`, `01.02.2024`, `2024.03.30`                                                                    |
-| English spelled-out months | `March 14, 2024`, `14 Mar 2024`, `Jan 1 99`                                                                               |
-| 12-hour AM/PM | `01/02/2024 3:04:05 PM`, `1:30 a.m.`                                                                                      |
-| Named TZ abbreviations (47) | `EST`, `PST`, `CET`, `JST`, `HKT`, `KST`, `NZDT`                                                                          |
-| UTC offsets | `+0500`, `+05:30`, `GMT+08:00`                                                                                            |
-| CJK date separators (年月日時分秒) | `1999年12月31日 00時00分00秒 JST`, `年1999月12日31 時00分00秒00`                                                              |
-| Compact numeric | `19990101`, `19990101T235900`, `19990101T235900Z`, `19990101T235900+0500`                                                  |
-| Unix timestamps | (of length 10, 13, 16, or 19) `1332151919` (s), `1384216367189` (ms), `1384216367111222` (µs), `1384216367111222333` (ns) |
+| Format Family | Examples |
+|---|---|
+| ISO 8601 | `2024-01-15T10:30:00Z`, `2024-01-15T10:30:00+05:30` |
+| ISO 8601 week dates | `2004-W53-6`, `2004W536`, `2004-W01-1T00:00:00Z` |
+| ISO 8601 ordinal dates | `1999-001`, `1999365`, `2000-366` |
+| RFC 2822 / RFC 1123 | `Fri, 01 Jan 1999 23:59:00 +0000` |
+| RFC 850 (obsolete HTTP) | `Sunday, 06-Nov-94 08:49:37 GMT` |
+| RFC 9557 (IXDTF) annotations | `2018-09-16T08:00:00+00:00[Europe/London]` |
+| Western numeric (slash/dash/dot) | `01/02/2024`, `15-06-2024`, `01.02.2024`, `2024.03.30` |
+| English spelled-out months | `March 14, 2024`, `14 Mar 2024`, `Jan 1 99` |
+| 12-hour AM/PM | `01/02/2024 3:04:05 PM`, `1:30 a.m.` |
+| Named TZ abbreviations (47) | `EST`, `PST`, `CET`, `JST`, `HKT`, `KST`, `NZDT` |
+| UTC offsets | `+0500`, `+05:30`, `GMT+08:00` |
+| CJK date separators (年月日時分秒) | `1999年12月31日 00時00分00秒 JST`, `年1999月12日31 時00分00秒00` |
+| Compact numeric | `19990101`, `19990101T235900Z`, `20140722105203` |
+| Unix timestamps | `1332151919` (s), `1384216367189` (ms), `1384216367111222` (µs), `1384216367111222333` (ns) |
 
 See [`src/test/resources/examples.txt`](src/test/resources/examples.txt) for the exhaustive list.
 
@@ -100,13 +104,13 @@ See [`src/test/resources/examples.txt`](src/test/resources/examples.txt) for the
 
 Benchmarked with [JMH](https://github.com/openjdk/jmh) on JDK 21 (OpenJDK 64-Bit Server VM, 1 fork, 3 warmup + 5 measurement iterations, throughput mode).
 
-Three strategies measured over 19 representative inputs covering ISO 8601, RFC 2822, Western slash/dash, spelled-out months, AM/PM, and compact numeric formats:
+Three strategies measured over 20 representative inputs covering ISO 8601, RFC 2822, RFC 850, Western slash/dash, spelled-out months, AM/PM, and compact numeric formats:
 
 | Strategy | Throughput | vs. Shotgun |
 |---|---|---|
-| **OmniDateParser** (lexer + state machine) | ~1,089,000 ops/s | **~25x faster** |
-| Shotgun (sequential `DateTimeFormatter` tries) | ~43,000 ops/s | baseline |
-| Single known formatter (ceiling — one format only) | ~1,084,000 ops/s | ~25x faster |
+| **OmniDateParser** (lexer + state machine) | ~1,421,000 ops/s | **~28x faster** |
+| Shotgun (sequential `DateTimeFormatter` tries) | ~50,000 ops/s | baseline |
+| Single known formatter (ceiling — one format only) | ~1,328,000 ops/s | ~27x faster |
 
 The shotgun approach pays a steep cost in exception creation on every miss. OmniDateParser's single-pass lexer avoids this entirely.
 
@@ -118,6 +122,7 @@ To reproduce: `./gradlew jmh`
 
 ## Not Supported
 
+- ISO 8601 durations (`P1Y2M3D`)
 - Some CJK date formats
 - Non-English or common conventions  (e.g. `Uhr` / `MEZ`)
 - Natural language (e.g. "yesterday", "noon", "midnight")

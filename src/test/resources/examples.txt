@@ -198,6 +198,31 @@ Mon Aug 10 15:44:11 UTC+0100 2015
 1384216367111222
 1384216367111222333
 
+# RFC 850 — obsolete HTTP format (full weekday + dash-Mon + 2-digit year)
+Monday, 02-Jan-06 15:04:05 MST
+Sunday, 06-Nov-94 08:49:37 GMT
+
+# ISO 8601 week dates
+2004-W53-6
+2004W536
+2004-W53
+2004-W01-1T00:00:00Z
+
+# ISO 8601 ordinal dates
+1999-001
+1999365
+2000-366
+1999-001T00:00:00Z
+
+# Apostrophe before 2-digit year
+oct 7, '70
+October 7, '70
+7 oct '70
+
+# Compact YYYYMMDDHHmmss
+20140722105203
+201407221052
+
 # Non-English / CJK characters
 2014年04月08日
 1999年1月1日 00時00分00秒 JST

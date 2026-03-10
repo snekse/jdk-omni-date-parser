@@ -6,7 +6,10 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.DateTimeException;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
+import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.util.List;
 import java.util.Locale;
@@ -19,8 +22,8 @@ import java.util.Locale;
  * date formats. It exists only in {@code src/jmh/} as a benchmark reference — it is
  * not part of the shipped library.
  *
- * <p>The list covers all 19 inputs in {@link BenchmarkInputs#ALL}.
- * Total formatters: 17 (after preprocessing normalizes a.m./p.m. and "at " tokens).
+ * <p>The list covers all 20 inputs in {@link BenchmarkInputs#ALL}.
+ * Total formatters: 18 (after preprocessing normalizes a.m./p.m. and "at " tokens).
  */
 public final class ShotgunDateParser {
 
@@ -57,6 +60,13 @@ public final class ShotgunDateParser {
         DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy hh:mm:ss a z", Locale.ENGLISH),
         // Year-first spelled-out: "1999 January 1 00:00:00 UTC"
         DateTimeFormatter.ofPattern("yyyy MMMM d HH:mm:ss z", Locale.ENGLISH),
+        // RFC 850: "Sunday, 06-Nov-94 08:49:37 GMT" — needs lenient resolver + pivot year
+        new DateTimeFormatterBuilder()
+            .appendPattern("EEEE, dd-MMM-")
+            .appendValueReduced(ChronoField.YEAR, 2, 2, 1970)
+            .appendPattern(" HH:mm:ss z")
+            .toFormatter(Locale.ENGLISH)
+            .withResolverStyle(ResolverStyle.LENIENT),
         // Compact numeric: "19990101" (LocalDate → UTC start-of-day)
         DateTimeFormatter.ofPattern("yyyyMMdd"),
         // ISO local date: "1999-01-31" (LocalDate → UTC start-of-day)

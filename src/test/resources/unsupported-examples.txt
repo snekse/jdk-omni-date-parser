@@ -21,18 +21,9 @@ December 1, 1999 12:00 noon
 # Ordinal day suffixes (1st, 2nd, 3rd, 7th, etc.) — not in scope per contract
 October 7th, 1970
 
-# RFC 850 (full day name + dash-Mon + 2-digit year) — not in scope per contract
-Monday, 02-Jan-06 15:04:05 MST
-
-# Compact YYYYMMDDHHmmss (14-char) — only 8-char YYYYMMDD is in scope
-20140722105203
-
-# Apostrophe before 2-digit year — not in scope per contract
-oct 7, '70
-
 # Period-suffix on month abbreviation — not in scope per contract
 oct. 7, 1970
-oct. 7, 70
+oct. 7, '70
 
 # ISO with spelled/abbreviated month name (ISO uses numeric months only)
 2013-Feb-03

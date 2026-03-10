@@ -66,6 +66,29 @@ class LexerTest {
     }
 
     @Test
+    void iso_week_date_W_literal_extended() {
+        // "2004-W53-6" → DIGIT_SEQ(2004) SEP(-) W_LITERAL(W) DIGIT_SEQ(53) SEP(-) DIGIT_SEQ(6)
+        List<Token> tokens = new Lexer("2004-W53-6").tokenize();
+        boolean hasW = tokens.stream().anyMatch(t -> t.type() == TokenType.W_LITERAL && t.value().equals("W"));
+        assertTrue(hasW, "Expected W_LITERAL token for ISO 8601 week date");
+    }
+
+    @Test
+    void iso_week_date_W_literal_basic() {
+        // "2004W536" → DIGIT_SEQ(2004) W_LITERAL(W) DIGIT_SEQ(536)
+        List<Token> tokens = new Lexer("2004W536").tokenize();
+        assertEquals(3, tokens.size());
+        assertEquals(TokenType.W_LITERAL, tokens.get(1).type());
+    }
+
+    @Test
+    void W_not_literal_when_standalone() {
+        // "W" at start of input should be ALPHA_SEQ, not W_LITERAL
+        List<Token> tokens = new Lexer("Wednesday").tokenize();
+        assertEquals(TokenType.ALPHA_SEQ, tokens.get(0).type());
+    }
+
+    @Test
     void fractional_seconds_dot() {
         // "1999-01-01T12:00:00.123Z" — dot before 123 should be DOT token
         List<Token> tokens = new Lexer("1999-01-01T12:00:00.123Z").tokenize();
