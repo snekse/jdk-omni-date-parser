@@ -8,15 +8,16 @@ import java.util.List;
  * <p>{@link #CORE} — 21 inputs covering formats that a hand-crafted shotgun parser can handle
  * without special preprocessing. Used for apples-to-apples comparisons.
  *
- * <p>{@link #ALL} — 23 inputs; extends CORE with ordinal day suffixes and period-suffix month
- * abbreviations, which require additional regex preprocessing in the shotgun approach.
+ * <p>{@link #ALL} — 26 inputs; extends CORE with ordinal day suffixes, period-suffix month
+ * abbreviations, and {@code @} date-time separator formats, all of which require additional
+ * preprocessing in the shotgun approach.
  */
 public final class BenchmarkInputs {
 
     private BenchmarkInputs() {}
 
     /**
-     * Core input set (21 entries): excludes ordinal-suffix and period-suffix formats.
+     * Core input set (21 entries): excludes ordinal-suffix, period-suffix, and @ separator formats.
      * Used by the "reduced" shotgun benchmark for a fair baseline comparison.
      */
     public static final List<String> CORE = List.of(
@@ -53,8 +54,8 @@ public final class BenchmarkInputs {
     );
 
     /**
-     * Full input set (23 entries): CORE plus ordinal-suffix and period-suffix formats.
-     * The shotgun approach requires extra regex preprocessing for these two additions.
+     * Full input set (26 entries): CORE plus ordinal-suffix, period-suffix, and @ separator formats.
+     * The shotgun approach requires extra preprocessing for these additions.
      */
     public static final List<String> ALL = List.of(
         // ISO 8601
@@ -84,6 +85,10 @@ public final class BenchmarkInputs {
         "Sunday, 06-Nov-94 08:49:37 GMT",
         // YYYY-Mon-DD (ISO-style with spelled month)
         "2013-Feb-03",
+        // @ as date-time separator
+        "2013-Feb-03@12:30:00",
+        "Jan. 31, 1999 @ 12:00 PM",
+        "12/31/2026 @ 18:00:09.001",
         // Ordinal day suffix — requires regex preprocessing in shotgun
         "October 7th, 1970",
         // Period-suffix month abbreviation — requires regex preprocessing in shotgun

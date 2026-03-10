@@ -247,11 +247,15 @@ public class DateAssembler {
 
         Token next = tokens.get(cur);
 
-        // T separator between date and time (ISO 8601)
+        // T or @ separator between date and time (ISO 8601 / extended)
         if (next.type() == TokenType.T_LITERAL) {
             cur++;
+        } else if (next.type() == TokenType.AT_LITERAL) {
+            cur++;
+            skipSpaces();
         } else if (next.type() == TokenType.SEPARATOR && " ".equals(next.value())) {
             cur++;
+            skipAtLiteral(); // handle "1999-01-01 @ 12:00"
         } else {
             return; // nothing more recognizable
         }
@@ -295,6 +299,7 @@ public class DateAssembler {
         resolveThreePartNumeric(a, b, c);
 
         skipSpaces();
+        skipAtLiteral();
         if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DIGIT_SEQ) {
             parseTimeSection();
             parseAmPm();
@@ -313,6 +318,7 @@ public class DateAssembler {
         skipSpaces();
         day = intOf(expect(TokenType.DIGIT_SEQ));
         skipSpaces();
+        skipAtLiteral();
         if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DIGIT_SEQ) {
             parseTimeSection();
             parseAmPm();
@@ -331,6 +337,7 @@ public class DateAssembler {
         expectSeparator("-");
         year = intOf(expect(TokenType.DIGIT_SEQ));
         skipSpaces();
+        skipAtLiteral();
         if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DIGIT_SEQ) {
             parseTimeSection();
             parseAmPm();
@@ -361,9 +368,10 @@ public class DateAssembler {
         month = Integer.parseInt(val.substring(4, 6));
         day   = Integer.parseInt(val.substring(6, 8));
 
-        // Optional compact time: T_LITERAL followed by HHMMSS or HHMM digits
-        if (cur < tokens.size() && tokens.get(cur).type() == TokenType.T_LITERAL) {
-            cur++; // consume T
+        // Optional compact time: T_LITERAL or AT_LITERAL followed by HHMMSS or HHMM digits
+        if (cur < tokens.size() && (tokens.get(cur).type() == TokenType.T_LITERAL
+                || tokens.get(cur).type() == TokenType.AT_LITERAL)) {
+            cur++; // consume T or @
             if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DIGIT_SEQ) {
                 String time = tokens.get(cur++).value();
                 if (time.length() >= 2) hour   = Integer.parseInt(time.substring(0, 2));
@@ -492,6 +500,7 @@ public class DateAssembler {
         int rawYear = intOf(expect(TokenType.DIGIT_SEQ));
         year = expandYear(rawYear, config.getPivotYear());
         skipSpaces();
+        skipAtLiteral();
         if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DIGIT_SEQ) {
             parseTimeSection();
             parseAmPm();
@@ -508,8 +517,12 @@ public class DateAssembler {
         Token next = tokens.get(cur);
         if (next.type() == TokenType.T_LITERAL) {
             cur++;
+        } else if (next.type() == TokenType.AT_LITERAL) {
+            cur++;
+            skipSpaces();
         } else if (next.type() == TokenType.SEPARATOR && " ".equals(next.value())) {
             cur++;
+            skipAtLiteral(); // handle "... @ 12:00"
         } else {
             return;
         }
@@ -627,9 +640,12 @@ public class DateAssembler {
         skipSpaces();
         if (cur >= tokens.size()) return; // date only
 
-        // Skip "at" keyword (e.g., "January 1, 1999 at 11:59 p.m. PST")
+        // Skip "at" keyword or '@' literal (e.g., "January 1, 1999 at 11:59 p.m. PST" or "Jan. 31, 1999 @ 12:00 PM")
         if (tokens.get(cur).type() == TokenType.ALPHA_SEQ
                 && "AT".equalsIgnoreCase(tokens.get(cur).value())) {
+            cur++;
+            skipSpaces();
+        } else if (tokens.get(cur).type() == TokenType.AT_LITERAL) {
             cur++;
             skipSpaces();
         }
@@ -1022,6 +1038,13 @@ public class DateAssembler {
             if ("ST".equals(upper) || "ND".equals(upper) || "RD".equals(upper) || "TH".equals(upper)) {
                 cur++;
             }
+        }
+    }
+
+    private void skipAtLiteral() {
+        if (cur < tokens.size() && tokens.get(cur).type() == TokenType.AT_LITERAL) {
+            cur++;
+            skipSpaces();
         }
     }
 

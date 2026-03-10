@@ -1,5 +1,7 @@
-# ISO 8601 / RFC 3339 — T separator
+# ISO 8601 / RFC 3339 — T separator and @ separator
 1999-01-01T00:00:00Z
+1999-01-01@00:00:00Z
+1999-01-01 @ 12:00:00
 1999-01-01T12:00:00+00:00
 1999-01-01T00:00:00.000+05:30
 1999-12-31T00:00:00-05:00
@@ -169,6 +171,7 @@ Dec 31, 1999 11:59:59 PM PST
 8/8/1965 12:00 AM
 03/19/2012 10:11:59
 03/19/2012 10:11:59.318636
+12/31/2026 @ 18:00:09.001
 
 # DD/MM/YYYY — slash-separated, European order (DMY)
 31/12/1999 00:00 GMT
@@ -228,10 +231,12 @@ January 1st, 1999 12:00 PM
 oct. 7, 1970
 Oct. 7, '70
 Jan. 31, 1999 12:00 PM
+Jan. 31, 1999 @ 12:00 PM
 
 # YYYY-Mon-DD — ISO-style with spelled/abbreviated month name
 2013-Feb-03
 2013-February-03
+2013-Feb-03@12:30:00
 
 # Compact YYYYMMDDHHmmss
 20140722105203

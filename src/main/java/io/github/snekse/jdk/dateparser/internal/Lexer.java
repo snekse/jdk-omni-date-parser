@@ -78,6 +78,7 @@ public class Lexer {
             case ':' -> new Token(TokenType.COLON, ":", start);
             case '.' -> new Token(TokenType.DOT, ".", start);
             case '+' -> new Token(TokenType.SIGN, "+", start);
+            case '@' -> new Token(TokenType.AT_LITERAL, "@", start);
             case '-' -> {
                 // '-' is SIGN only if it appears after a space (offset context) or at start;
                 // otherwise it's a SEPARATOR (date component delimiter).

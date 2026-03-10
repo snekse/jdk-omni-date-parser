@@ -25,9 +25,10 @@ import java.util.Locale;
  * <p>Two entry points are provided:
  * <ul>
  *   <li>{@link #parseCore} — handles the 21 core inputs ({@link BenchmarkInputs#CORE}),
- *       without ordinal/period preprocessing. 18 formatters. Fair baseline comparison.</li>
- *   <li>{@link #parse} — handles all 23 inputs ({@link BenchmarkInputs#ALL}), including
- *       ordinal-suffix and period-suffix months via extra regex preprocessing. 21 formatters.</li>
+ *       without ordinal/period/@ preprocessing. 19 formatters. Fair baseline comparison.</li>
+ *   <li>{@link #parse} — handles all 26 inputs ({@link BenchmarkInputs#ALL}), including
+ *       ordinal-suffix, period-suffix, and {@code @} separator formats via extra preprocessing.
+ *       24 formatters.</li>
  * </ul>
  */
 public final class ShotgunDateParser {
@@ -80,7 +81,7 @@ public final class ShotgunDateParser {
         DateTimeFormatter.ISO_LOCAL_DATE
     );
 
-    // Full formatters: CORE plus formatters for ordinal-suffix and period-suffix formats.
+    // Full formatters: CORE plus formatters for ordinal-suffix, period-suffix, and @ separator formats.
     private static final List<DateTimeFormatter> ALL_FORMATTERS;
     static {
         var list = new java.util.ArrayList<>(CORE_FORMATTERS);
@@ -91,6 +92,18 @@ public final class ShotgunDateParser {
         list.add(list.size() - 2,
             new DateTimeFormatterBuilder().parseCaseInsensitive()
                 .appendPattern("MMM d, yyyy").toFormatter(Locale.ENGLISH));
+        // ISO-style spelled month with T-separated time (after @ → T preprocessing):
+        // "2013-Feb-03@12:30:00" → "2013-Feb-03T12:30:00"
+        list.add(list.size() - 2,
+            DateTimeFormatter.ofPattern("yyyy-MMM-dd'T'HH:mm:ss", Locale.ENGLISH));
+        // Western MDY with fractional seconds (after " @ " → " " preprocessing):
+        // "12/31/2026 @ 18:00:09.001" → "12/31/2026 18:00:09.001"
+        list.add(list.size() - 2,
+            DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm:ss.SSS", Locale.ENGLISH));
+        // Abbreviated month + 12h time, no TZ (after period + " @ " preprocessing):
+        // "Jan. 31, 1999 @ 12:00 PM" → "Jan 31, 1999 12:00 PM"
+        list.add(list.size() - 2,
+            DateTimeFormatter.ofPattern("MMM d, yyyy hh:mm a", Locale.ENGLISH));
         ALL_FORMATTERS = java.util.List.copyOf(list);
     }
 
@@ -150,15 +163,19 @@ public final class ShotgunDateParser {
     }
 
     /**
-     * Full preprocessing: base preprocessing plus ordinal-suffix and period-suffix removal.
+     * Full preprocessing: base preprocessing plus ordinal-suffix, period-suffix, and @ separator.
      * <ul>
      *   <li>Ordinal suffixes stripped: {@code "7th"} → {@code "7"}, {@code "1st"} → {@code "1"}</li>
      *   <li>Abbreviated-month periods stripped: {@code "Oct."} → {@code "Oct"}</li>
+     *   <li>{@code " @ "} → {@code " "} (spaced @ separator, e.g. {@code "Jan 31, 1999 @ 12:00 PM"})</li>
+     *   <li>{@code "@"} → {@code "T"} (unspaced @ separator, e.g. {@code "2013-Feb-03@12:30:00"})</li>
      * </ul>
      */
     private static String preprocessAll(String input) {
         return preprocessCore(input)
             .replaceAll("(?i)(\\d+)(st|nd|rd|th)\\b", "$1")
-            .replaceAll("(?i)\\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\\.", "$1");
+            .replaceAll("(?i)\\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\\.", "$1")
+            .replace(" @ ", " ")
+            .replace("@", "T");
     }
 }

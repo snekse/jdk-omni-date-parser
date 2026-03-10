@@ -9,7 +9,7 @@ A lenient JDK date/time parser that converts almost any date string to `java.tim
 
 Most projects handle multiple unknown date formats with the "shotgun" approach: try a list of `DateTimeFormatter` patterns in sequence, catching exceptions on each miss until one succeeds. This is slow, verbose, and brittle — every new format means another pattern to maintain.
 
-**jdk-omni-date-parser** replaces all of that with a single-pass lexer and state machine. One call, no format patterns, pure `java.time` output. It handles ISO 8601 (including week dates, ordinal dates, and RFC 9557 annotations), RFC 2822, RFC 850, slash/dash/dot separators, spelled-out months, ordinal day suffixes, period-suffix month abbreviations, AM/PM, 47 named timezone abbreviations, and more — running at ~1,160k ops/s, roughly **33–42x faster** than the shotgun approach and matching the throughput of a hand-picked single date parser.
+**jdk-omni-date-parser** replaces all of that with a single-pass lexer and state machine. One call, no format patterns, pure `java.time` output. It handles ISO 8601 (including week dates, ordinal dates, and RFC 9557 annotations), RFC 2822, RFC 850, slash/dash/dot separators, spelled-out months, ordinal day suffixes, period-suffix month abbreviations, AM/PM, 47 named timezone abbreviations, and more — running at ~1,251k ops/s, roughly **33–50x faster** than the shotgun approach and matching the throughput of a hand-picked single date parser.
 
 Because this matches the throughput of a single known date parser, this library also works great for systems that have a handful of known date patterns without the need of declaring each.
 
@@ -107,15 +107,15 @@ See [`src/test/resources/examples.txt`](src/test/resources/examples.txt) for the
 
 Benchmarked with [JMH](https://github.com/openjdk/jmh) on JDK 21 (OpenJDK 64-Bit Server VM, 1 fork, 3 warmup + 5 measurement iterations, throughput mode).
 
-Benchmarked over two input sets. The **core** set (21 inputs) covers formats a hand-crafted shotgun can handle without special preprocessing. The **full** set (23 inputs) adds ordinal day suffixes and period-suffix month abbreviations, which require two additional regex passes in the shotgun but are handled natively by OmniDateParser's lexer:
+Benchmarked over two input sets. The **core** set (21 inputs) covers formats a hand-crafted shotgun can handle without special preprocessing. The **full** set (26 inputs) adds ordinal day suffixes, period-suffix month abbreviations, and `@` date-time separator formats, which require additional preprocessing in the shotgun but are handled natively by OmniDateParser's lexer:
 
-| Strategy | Throughput (full, 23 inputs) | vs. Shotgun | Throughput (core†, 21 inputs) | vs. Shotgun (core†) |
+| Strategy | Throughput (full, 26 inputs) | vs. Shotgun | Throughput (core†, 21 inputs) | vs. Shotgun (core†) |
 |---|---|---|---|---|
-| **OmniDateParser** | ~1,182,000 ops/s | **~42x faster** | ~1,160,000 ops/s | **~34x faster** |
-| Shotgun (sequential `DateTimeFormatter` tries) | ~28,000 ops/s | baseline | ~35,000 ops/s | baseline |
-| Single known formatter (ceiling) | ~1,038,000 ops/s | ~37x faster | — | — |
+| **OmniDateParser** | ~1,328,000 ops/s | **~50x faster** | ~1,251,000 ops/s | **~33x faster** |
+| Shotgun (sequential `DateTimeFormatter` tries) | ~26,000 ops/s | baseline | ~38,000 ops/s | baseline |
+| Single known formatter (ceiling) | ~1,239,000 ops/s | ~47x faster | — | — |
 
-†Core excludes ordinal-suffix (`October 7th`) and period-suffix (`Oct. 7`) formats. The shotgun's extra regex preprocessing for those formats accounts for the wider gap in the full comparison.
+†Core excludes ordinal-suffix (`October 7th`), period-suffix (`Oct. 7`), and `@` separator (`2013-Feb-03@12:30:00`) formats. The shotgun's extra preprocessing for those formats accounts for the wider gap in the full comparison.
 
 The shotgun approach pays a steep cost in exception creation on every miss. OmniDateParser's single-pass lexer avoids this entirely.
 
