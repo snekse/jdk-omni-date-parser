@@ -7,7 +7,7 @@ This document explains how `jdk-omni-date-parser` identifies the format family o
 
 ---
 
-## Format Detection Flowchart
+## Format Detection Flowchart (WIP)
 
 The `DateAssembler.classify()` method routes each input to a format family using
 the **shape** of the token stream — token types, digit lengths, and separator
