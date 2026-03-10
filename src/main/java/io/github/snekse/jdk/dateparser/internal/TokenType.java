@@ -8,4 +8,6 @@ public enum TokenType {
     SIGN,        // + or - (when appearing before a digit offset)
     DOT,         // . (fractional seconds separator)
     T_LITERAL,   // literal 'T' between date and time in ISO 8601
+    AT_LITERAL,  // literal '@' as date-time separator (e.g. 2013-Feb-03@12:30:00)
+    W_LITERAL,   // literal 'W' in ISO 8601 week dates (e.g. 2004-W53-6)
 }

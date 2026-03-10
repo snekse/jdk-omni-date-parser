@@ -1,0 +1,38 @@
+# --- Invalid month ---
+2019-13-10
+2019-0-10
+
+# --- Invalid day ---
+2019-12-40
+2019-12-0
+
+# --- Invalid time components ---
+2019-12-12 61:00:00
+2019-12-12 00:88:00
+2019-12-12 00:00:77
+
+# --- Invalid UTC offset ---
+# TODO: parser does not yet validate offset range (valid: ±18:00); re-enable when fixed
+# 2019-12-12 00:00:00 -30:00
+# 2019-12-12 00:00:00 +30:00
+
+# --- Dot-separated with impossible day/month values ---
+35.5.2000
+5.35.2000
+0.1.2000
+1.0.2000
+13.13.2000
+0.0.2000
+
+# --- noon/midnight require hour == 12 and minute == 0 and second == 0 ---
+January 1, 1999 11:00 noon
+January 1, 1999 1:00 midnight
+1999/12/31 12:35 Noon
+1999-01-01 12:00:01 midnight
+
+# --- Truncated dates (missing required components) ---
+2014-04
+2014.03
+
+# --- Ambiguous-length digit string (not a valid timestamp or date) ---
+20000

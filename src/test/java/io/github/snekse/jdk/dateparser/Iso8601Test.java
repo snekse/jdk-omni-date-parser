@@ -10,14 +10,42 @@ import java.time.ZonedDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests for ISO 8601 — the international standard for date/time interchange.
+ *
+ * <p><b>ISO 8601</b> (The International Standard) defines a family of date/time string formats
+ * using a year-month-day ordering with dash separators, a {@code T} separator between date and
+ * time, and a UTC offset or {@code Z} for timezone. It is the foundation for most other modern
+ * date formats on the internet.
+ *
+ * <p>Example formats:
+ * <ul>
+ *   <li>{@code 1999-01-31} — date only</li>
+ *   <li>{@code 1999-01-01T00:00:00Z} — datetime with UTC</li>
+ *   <li>{@code 1999-01-01T00:00:00.000+05:30} — datetime with fractional seconds and offset</li>
+ *   <li>{@code 1999-01-01 12:00:00 -0500} — space separator (common relaxation)</li>
+ * </ul>
+ *
+ * <p>Several tests in this class also cover <b>RFC 3339</b> (The Modern Internet Standard), which
+ * is a strict profile of ISO 8601 designed for internet protocols. RFC 3339 requires an offset
+ * ({@code Z} or {@code +HH:MM}), uses {@code T} or space as the date-time separator, and allows
+ * fractional seconds. Any valid RFC 3339 string is also valid ISO 8601, so the tests here cover
+ * both. RFC 3339 tests are annotated in their method-level comments.
+ *
+ * @see IsoWeekDateTest
+ * @see IsoOrdinalDateTest
+ * @see Rfc9557AnnotationTest
+ */
 class Iso8601Test {
 
+    /** ISO 8601 date-only: {@code YYYY-MM-DD} with no time or timezone component. */
     @Test
     void date_only_local_date() {
         LocalDate result = OmniDateParser.toLocalDate("1999-01-31");
         assertEquals(LocalDate.of(1999, 1, 31), result);
     }
 
+    /** RFC 3339: datetime with {@code Z} (UTC) suffix — the most common API format. */
     @Test
     void datetime_with_Z() {
         ZonedDateTime result = OmniDateParser.toZonedDateTime("1999-01-01T00:00:00Z");
@@ -28,6 +56,7 @@ class Iso8601Test {
         assertEquals(ZoneOffset.UTC, result.getOffset());
     }
 
+    /** RFC 3339: datetime with fractional seconds and a colon-separated positive offset. */
     @Test
     void datetime_with_positive_offset_colon() {
         ZonedDateTime result = OmniDateParser.toZonedDateTime("1999-01-01T00:00:00.000+05:30");
@@ -37,6 +66,11 @@ class Iso8601Test {
         assertEquals(1, result.getDayOfMonth());
     }
 
+    /**
+     * ISO 8601 with space separator and no-colon offset ({@code -0500}).
+     * This is a common relaxation seen in logs and databases. Not strictly RFC 3339 (which
+     * requires {@code T} and colon in offset), but widely accepted.
+     */
     @Test
     void datetime_with_negative_offset_no_colon() {
         ZonedDateTime result = OmniDateParser.toZonedDateTime("1999-01-01 12:00:00 -0500");
@@ -44,6 +78,7 @@ class Iso8601Test {
         assertEquals(12, result.getHour());
     }
 
+    /** RFC 3339: fractional seconds (milliseconds) with {@code Z} suffix. */
     @Test
     void datetime_with_millis() {
         ZonedDateTime result = OmniDateParser.toZonedDateTime("1999-01-01T12:00:00.123Z");
@@ -51,6 +86,7 @@ class Iso8601Test {
         assertEquals(ZoneOffset.UTC, result.getOffset());
     }
 
+    /** ISO 8601 with named timezone abbreviation {@code UTC} (not part of RFC 3339). */
     @Test
     void datetime_with_utc_abbr() {
         ZonedDateTime result = OmniDateParser.toZonedDateTime("1999-01-01 12:00 UTC");
@@ -58,12 +94,14 @@ class Iso8601Test {
         assertEquals(12, result.getHour());
     }
 
+    /** ISO 8601 with named timezone abbreviation {@code GMT} (not part of RFC 3339). */
     @Test
     void datetime_with_gmt_abbr() {
         ZonedDateTime result = OmniDateParser.toZonedDateTime("1999-01-01 12:00 GMT");
         assertEquals(ZoneOffset.UTC, result.getOffset());
     }
 
+    /** ISO 8601 date-only defaults to UTC when no timezone is present. */
     @Test
     void date_only_defaults_to_utc() {
         ZonedDateTime result = OmniDateParser.toZonedDateTime("1999-01-01");

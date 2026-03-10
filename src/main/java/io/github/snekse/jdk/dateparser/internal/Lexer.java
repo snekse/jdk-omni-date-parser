@@ -20,6 +20,8 @@ public class Lexer {
                 tokens.add(readDigitSeq());
             } else if (c == 'T' && isTLiteral(tokens)) {
                 tokens.add(new Token(TokenType.T_LITERAL, "T", pos++));
+            } else if (c == 'W' && isWLiteral(tokens)) {
+                tokens.add(new Token(TokenType.W_LITERAL, "W", pos++));
             } else if (Character.isLetter(c)) {
                 tokens.add(readAlphaSeq());
             } else {
@@ -36,6 +38,19 @@ public class Lexer {
     private boolean isTLiteral(List<Token> tokens) {
         if (tokens.isEmpty()) return false;
         if (tokens.get(tokens.size() - 1).type() != TokenType.DIGIT_SEQ) return false;
+        return pos + 1 < input.length() && Character.isDigit(input.charAt(pos + 1));
+    }
+
+    /**
+     * W_LITERAL: current char is uppercase 'W', previous token is DIGIT_SEQ (4-digit year)
+     * or SEPARATOR("-"), and next char exists and is a digit.
+     */
+    private boolean isWLiteral(List<Token> tokens) {
+        if (tokens.isEmpty()) return false;
+        Token prev = tokens.get(tokens.size() - 1);
+        if (prev.type() != TokenType.DIGIT_SEQ && !(prev.type() == TokenType.SEPARATOR && "-".equals(prev.value()))) {
+            return false;
+        }
         return pos + 1 < input.length() && Character.isDigit(input.charAt(pos + 1));
     }
 
@@ -63,6 +78,7 @@ public class Lexer {
             case ':' -> new Token(TokenType.COLON, ":", start);
             case '.' -> new Token(TokenType.DOT, ".", start);
             case '+' -> new Token(TokenType.SIGN, "+", start);
+            case '@' -> new Token(TokenType.AT_LITERAL, "@", start);
             case '-' -> {
                 // '-' is SIGN only if it appears after a space (offset context) or at start;
                 // otherwise it's a SEPARATOR (date component delimiter).

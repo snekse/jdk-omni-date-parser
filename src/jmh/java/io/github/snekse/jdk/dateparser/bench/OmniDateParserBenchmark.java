@@ -36,8 +36,10 @@ import java.util.concurrent.TimeUnit;
 @Fork(1)
 public class OmniDateParserBenchmark {
 
-    private List<String> inputs;
-    private int index;
+    private List<String> allInputs;
+    private List<String> coreInputs;
+    private int allIndex;
+    private int coreIndex;
 
     /**
      * Single known formatter for ISO 8601 with offset — the theoretical throughput ceiling.
@@ -48,31 +50,56 @@ public class OmniDateParserBenchmark {
 
     @Setup
     public void setup() {
-        inputs = BenchmarkInputs.ALL;
-        index = 0;
+        allInputs = BenchmarkInputs.ALL;
+        coreInputs = BenchmarkInputs.CORE;
+        allIndex = 0;
+        coreIndex = 0;
     }
 
-    /** Returns the next input from the round-robin cycle. */
-    private String next() {
-        String s = inputs.get(index % inputs.size());
-        index++;
+    private String nextAll() {
+        String s = allInputs.get(allIndex % allInputs.size());
+        allIndex++;
+        return s;
+    }
+
+    private String nextCore() {
+        String s = coreInputs.get(coreIndex % coreInputs.size());
+        coreIndex++;
         return s;
     }
 
     /**
-     * Measures OmniDateParser throughput across all benchmark inputs (round-robin).
+     * OmniDateParser over all 23 inputs (including ordinal/period formats).
      */
     @Benchmark
     public ZonedDateTime omniDateParser() {
-        return OmniDateParser.toZonedDateTime(next());
+        return OmniDateParser.toZonedDateTime(nextAll());
     }
 
     /**
-     * Measures shotgun (sequential formatter tries) throughput across all benchmark inputs.
+     * OmniDateParser over the 21 core inputs (no ordinal/period). Paired with
+     * {@link #shotgunCore()} for a fair apples-to-apples comparison.
+     */
+    @Benchmark
+    public ZonedDateTime omniDateParserCore() {
+        return OmniDateParser.toZonedDateTime(nextCore());
+    }
+
+    /**
+     * Shotgun over all 23 inputs — includes ordinal-suffix and period-suffix preprocessing.
      */
     @Benchmark
     public ZonedDateTime shotgun() {
-        return ShotgunDateParser.parse(next());
+        return ShotgunDateParser.parse(nextAll());
+    }
+
+    /**
+     * Shotgun over the 21 core inputs — no ordinal/period preprocessing.
+     * Paired with {@link #omniDateParserCore()} for a fair apples-to-apples comparison.
+     */
+    @Benchmark
+    public ZonedDateTime shotgunCore() {
+        return ShotgunDateParser.parseCore(nextCore());
     }
 
     /**
@@ -80,7 +107,7 @@ public class OmniDateParserBenchmark {
      * the right format for a fixed ISO 8601 input.
      *
      * <p><b>Note:</b> this benchmark always parses the same ISO 8601 string — it is NOT
-     * apples-to-apples with the other two benchmarks. It shows what is possible when
+     * apples-to-apples with the other benchmarks. It shows what is possible when
      * the format is known in advance.
      */
     @Benchmark

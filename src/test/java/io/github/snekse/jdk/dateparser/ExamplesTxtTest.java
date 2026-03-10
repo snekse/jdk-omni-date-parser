@@ -11,40 +11,23 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Acceptance test: reads all in-scope rows from examples.txt and verifies each
- * parses without throwing an exception.
+ * Acceptance tests driven by text fixture files:
+ * <ul>
+ *   <li>{@code examples.txt} — in-scope formats that must parse successfully</li>
+ *   <li>{@code invalid-examples.txt} — invalid data values that must throw</li>
+ *   <li>{@code unsupported-examples.txt} — valid but out-of-scope formats that must throw</li>
+ * </ul>
  */
 class ExamplesTxtTest {
 
-    // Lines excluded from scope (1-indexed): CJK, German Uhr/MEZ, noon, hrs
-    private static final Set<Integer> EXCLUDED_LINES = Set.of(
-            18, 20, 21, 31, 32, 33, 50, 51, 52, 54, 62, 63, 64, 72, 73, 79, 81, 82
-    );
-
     static Stream<Arguments> examplesSource() throws IOException {
-        InputStream is = ExamplesTxtTest.class.getClassLoader()
-                .getResourceAsStream("examples.txt");
-        if (is == null) {
-            throw new IOException("examples.txt not found in test resources");
-        }
-        List<Arguments> args = new ArrayList<>();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-            String line;
-            int lineNumber = 0;
-            while ((line = reader.readLine()) != null) {
-                lineNumber++;
-                if (line.isBlank()) continue;
-                if (EXCLUDED_LINES.contains(lineNumber)) continue;
-                args.add(Arguments.of(lineNumber, line));
-            }
-        }
-        return args.stream();
+        return readLines("examples.txt");
     }
 
     @ParameterizedTest(name = "line {0}: {1}")
@@ -52,5 +35,45 @@ class ExamplesTxtTest {
     void parsesWithoutError(int lineNumber, String input) {
         assertDoesNotThrow(() -> OmniDateParser.toZonedDateTime(input),
                 "Failed to parse line " + lineNumber + ": " + input);
+    }
+
+    static Stream<Arguments> invalidExamplesSource() throws IOException {
+        return readLines("invalid-examples.txt");
+    }
+
+    @ParameterizedTest(name = "line {0}: {1}")
+    @MethodSource("invalidExamplesSource")
+    void invalidInputThrows(int lineNumber, String input) {
+        assertThrows(DateParseException.class,
+                () -> OmniDateParser.toZonedDateTime(input),
+                "Expected DateParseException for line " + lineNumber + ": " + input);
+    }
+
+    static Stream<Arguments> unsupportedExamplesSource() throws IOException {
+        return readLines("unsupported-examples.txt");
+    }
+
+    @ParameterizedTest(name = "line {0}: {1}")
+    @MethodSource("unsupportedExamplesSource")
+    void unsupportedFormatThrows(int lineNumber, String input) {
+        assertThrows(DateParseException.class,
+                () -> OmniDateParser.toZonedDateTime(input),
+                "Expected DateParseException for unsupported format at line " + lineNumber + ": " + input);
+    }
+
+    private static Stream<Arguments> readLines(String resourceName) throws IOException {
+        InputStream is = ExamplesTxtTest.class.getClassLoader().getResourceAsStream(resourceName);
+        if (is == null) throw new IOException(resourceName + " not found in test resources");
+        List<Arguments> args = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+            String line;
+            int lineNumber = 0;
+            while ((line = reader.readLine()) != null) {
+                lineNumber++;
+                if (line.isBlank() || line.startsWith("#")) continue;
+                args.add(Arguments.of(lineNumber, line));
+            }
+        }
+        return args.stream();
     }
 }
