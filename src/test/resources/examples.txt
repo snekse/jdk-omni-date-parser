@@ -219,6 +219,20 @@ oct 7, '70
 October 7, '70
 7 oct '70
 
+# Ordinal day suffixes (1st, 2nd, 3rd, 7th, etc.)
+October 7th, 1970
+January 1st, 1999 12:00 PM
+7th October 1970
+
+# Period-suffix on month abbreviation
+oct. 7, 1970
+Oct. 7, '70
+Jan. 31, 1999 12:00 PM
+
+# YYYY-Mon-DD — ISO-style with spelled/abbreviated month name
+2013-Feb-03
+2013-February-03
+
 # Compact YYYYMMDDHHmmss
 20140722105203
 201407221052

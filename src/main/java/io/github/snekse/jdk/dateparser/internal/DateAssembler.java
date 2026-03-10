@@ -155,6 +155,13 @@ public class DateAssembler {
                     classifyIsoOrdinal();
                     return;
                 }
+                // ISO-style with spelled month: 2013-Feb-03
+                if (second.type() == TokenType.SEPARATOR && "-".equals(second.value())
+                        && tokens.size() > 2 && tokens.get(2).type() == TokenType.ALPHA_SEQ
+                        && MonthNames.resolve(tokens.get(2).value()).isPresent()) {
+                    classifyYearDashMonthNameDay();
+                    return;
+                }
             }
             classifyIso(); // YYYY-MM-DD (default 4-digit start)
             return;
@@ -329,6 +336,19 @@ public class DateAssembler {
             parseAmPm();
             parseZoneSection();
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // YYYY-Mon-DD: ISO-style with spelled/abbreviated month name
+    // -----------------------------------------------------------------------
+
+    private void classifyYearDashMonthNameDay() {
+        year = intOf(expect(TokenType.DIGIT_SEQ));
+        expectSeparator("-");
+        month = expectMonthName();
+        expectSeparator("-");
+        day = intOf(expect(TokenType.DIGIT_SEQ));
+        parseOptionalTimeSuffix();
     }
 
     // -----------------------------------------------------------------------
@@ -572,8 +592,9 @@ public class DateAssembler {
         Token t = tokens.get(cur);
 
         if (t.type() == TokenType.DIGIT_SEQ) {
-            // DD Mon YYYY  or  DD Mon 'YY
+            // DD Mon YYYY  or  DD Mon 'YY  or  7th Oct 1970
             day = intOf(t); cur++;
+            skipOrdinalSuffix();
             skipSpaces();
             month = expectMonthName();
             skipSpaces();
@@ -583,10 +604,15 @@ public class DateAssembler {
             if (monthOpt.isEmpty()) {
                 throw new DateParseException(original, "expected day number or month name, got: " + t.value());
             }
-            // Mon DD YYYY  or  Mon DD, YYYY  or  Mon DD, 'YY
+            // Mon DD YYYY  or  Mon DD, YYYY  or  Mon DD, 'YY  or  Oct. 7, 1970
             month = monthOpt.getAsInt(); cur++;
+            // skip optional abbreviation period (e.g., "Oct." → "Oct" + DOT)
+            if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DOT) {
+                cur++;
+            }
             skipSpaces();
             day = intOf(expect(TokenType.DIGIT_SEQ));
+            skipOrdinalSuffix();
             // optional comma
             if (cur < tokens.size() && tokens.get(cur).type() == TokenType.SEPARATOR
                     && ",".equals(tokens.get(cur).value())) {
@@ -965,6 +991,10 @@ public class DateAssembler {
         if (m.isEmpty()) {
             throw new DateParseException(original, "unrecognized month name: " + t.value());
         }
+        // consume optional trailing period (abbreviation dot: "Oct.", "Jan.")
+        if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DOT) {
+            cur++;
+        }
         return m.getAsInt();
     }
 
@@ -983,6 +1013,16 @@ public class DateAssembler {
             return expandYear(raw, config.getPivotYear());
         }
         return intOf(expect(TokenType.DIGIT_SEQ));
+    }
+
+    /** Skips ordinal day suffixes: st, nd, rd, th (e.g. "7th", "1st"). */
+    private void skipOrdinalSuffix() {
+        if (cur < tokens.size() && tokens.get(cur).type() == TokenType.ALPHA_SEQ) {
+            String upper = tokens.get(cur).value().toUpperCase();
+            if ("ST".equals(upper) || "ND".equals(upper) || "RD".equals(upper) || "TH".equals(upper)) {
+                cur++;
+            }
+        }
     }
 
     private void skipSpaces() {

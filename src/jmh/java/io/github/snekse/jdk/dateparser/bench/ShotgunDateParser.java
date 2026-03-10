@@ -22,15 +22,20 @@ import java.util.Locale;
  * date formats. It exists only in {@code src/jmh/} as a benchmark reference — it is
  * not part of the shipped library.
  *
- * <p>The list covers all 20 inputs in {@link BenchmarkInputs#ALL}.
- * Total formatters: 18 (after preprocessing normalizes a.m./p.m. and "at " tokens).
+ * <p>Two entry points are provided:
+ * <ul>
+ *   <li>{@link #parseCore} — handles the 21 core inputs ({@link BenchmarkInputs#CORE}),
+ *       without ordinal/period preprocessing. 18 formatters. Fair baseline comparison.</li>
+ *   <li>{@link #parse} — handles all 23 inputs ({@link BenchmarkInputs#ALL}), including
+ *       ordinal-suffix and period-suffix months via extra regex preprocessing. 21 formatters.</li>
+ * </ul>
  */
 public final class ShotgunDateParser {
 
     private ShotgunDateParser() {}
 
-    // Ordered list of formatters to try. Every failure throws an exception — expensive on JVM.
-    private static final List<DateTimeFormatter> FORMATTERS = List.of(
+    // Core formatters: covers BenchmarkInputs.CORE — no ordinal/period-specific formatters.
+    private static final List<DateTimeFormatter> CORE_FORMATTERS = List.of(
         // ISO 8601 variants (ZonedDateTime / OffsetDateTime)
         DateTimeFormatter.ISO_ZONED_DATE_TIME,
         DateTimeFormatter.ISO_OFFSET_DATE_TIME,
@@ -67,36 +72,62 @@ public final class ShotgunDateParser {
             .appendPattern(" HH:mm:ss z")
             .toFormatter(Locale.ENGLISH)
             .withResolverStyle(ResolverStyle.LENIENT),
+        // ISO-style with spelled month: "2013-Feb-03"
+        DateTimeFormatter.ofPattern("yyyy-MMM-dd", Locale.ENGLISH),
         // Compact numeric: "19990101" (LocalDate → UTC start-of-day)
         DateTimeFormatter.ofPattern("yyyyMMdd"),
         // ISO local date: "1999-01-31" (LocalDate → UTC start-of-day)
         DateTimeFormatter.ISO_LOCAL_DATE
     );
 
+    // Full formatters: CORE plus formatters for ordinal-suffix and period-suffix formats.
+    private static final List<DateTimeFormatter> ALL_FORMATTERS;
+    static {
+        var list = new java.util.ArrayList<>(CORE_FORMATTERS);
+        // Insert before compact/ISO-local-date — spelled-out date-only after ordinal stripped
+        list.add(list.size() - 2,
+            DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.ENGLISH));
+        // Abbreviated month date-only after period stripped (case-insensitive for "oct")
+        list.add(list.size() - 2,
+            new DateTimeFormatterBuilder().parseCaseInsensitive()
+                .appendPattern("MMM d, yyyy").toFormatter(Locale.ENGLISH));
+        ALL_FORMATTERS = java.util.List.copyOf(list);
+    }
+
     /**
-     * Parses {@code input} to a {@link ZonedDateTime}.
+     * Parses {@code input} using the core formatter set (no ordinal/period support).
+     * Use with {@link BenchmarkInputs#CORE} for a fair apples-to-apples comparison.
      *
-     * <p>Preprocessing: normalises {@code "a.m."}/{@code "p.m."} to {@code "AM"}/{@code "PM"}
-     * and removes the word {@code " at "} so that formatters can be applied uniformly.
+     * @param input the date/time string to parse
+     * @return the parsed ZonedDateTime
+     * @throws DateTimeParseException if no formatter matched
+     */
+    public static ZonedDateTime parseCore(String input) {
+        return tryFormatters(preprocessCore(input), CORE_FORMATTERS);
+    }
+
+    /**
+     * Parses {@code input} using the full formatter set, with ordinal-suffix and
+     * period-suffix preprocessing. Use with {@link BenchmarkInputs#ALL}.
      *
      * @param input the date/time string to parse
      * @return the parsed ZonedDateTime
      * @throws DateTimeParseException if no formatter matched
      */
     public static ZonedDateTime parse(String input) {
-        String normalised = preprocess(input);
+        return tryFormatters(preprocessAll(input), ALL_FORMATTERS);
+    }
 
-        for (DateTimeFormatter fmt : FORMATTERS) {
+    private static ZonedDateTime tryFormatters(String normalised, List<DateTimeFormatter> formatters) {
+        for (DateTimeFormatter fmt : formatters) {
             try {
                 TemporalAccessor ta = fmt.parse(normalised);
                 try {
                     return ZonedDateTime.from(ta);
                 } catch (DateTimeException e1) {
                     try {
-                        // LocalDateTime result (no zone info) — apply UTC
                         return LocalDateTime.from(ta).atZone(ZoneOffset.UTC);
                     } catch (DateTimeException e2) {
-                        // LocalDate result — start of day UTC
                         return LocalDate.from(ta).atStartOfDay(ZoneOffset.UTC);
                     }
                 }
@@ -104,20 +135,30 @@ public final class ShotgunDateParser {
                 // try next — this exception creation is the bottleneck
             }
         }
-        throw new DateTimeParseException("No formatter matched: " + input, input, 0);
+        throw new DateTimeParseException("No formatter matched: " + normalised, normalised, 0);
     }
 
     /**
-     * Normalises non-standard tokens so that {@link DateTimeFormatter} patterns can match.
-     * <ul>
-     *   <li>{@code " at "} → {@code " "} (e.g. "January 1, 1999 at 11:59 p.m. PST")</li>
-     *   <li>{@code "p.m."} → {@code "PM"}, {@code "a.m."} → {@code "AM"} (case-insensitive)</li>
-     * </ul>
+     * Base preprocessing: normalises {@code "a.m."}/{@code "p.m."} to {@code "AM"}/{@code "PM"}
+     * and removes the word {@code " at "}.
      */
-    private static String preprocess(String input) {
+    private static String preprocessCore(String input) {
         return input
             .replace(" at ", " ")
             .replaceAll("(?i)p\\.m\\.", "PM")
             .replaceAll("(?i)a\\.m\\.", "AM");
+    }
+
+    /**
+     * Full preprocessing: base preprocessing plus ordinal-suffix and period-suffix removal.
+     * <ul>
+     *   <li>Ordinal suffixes stripped: {@code "7th"} → {@code "7"}, {@code "1st"} → {@code "1"}</li>
+     *   <li>Abbreviated-month periods stripped: {@code "Oct."} → {@code "Oct"}</li>
+     * </ul>
+     */
+    private static String preprocessAll(String input) {
+        return preprocessCore(input)
+            .replaceAll("(?i)(\\d+)(st|nd|rd|th)\\b", "$1")
+            .replaceAll("(?i)\\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\\.", "$1");
     }
 }

@@ -18,12 +18,3 @@ December 1, 1999 12:00 noon
 # Time-only without date — not in scope per contract
 0:08 PM, CEST
 
-# Ordinal day suffixes (1st, 2nd, 3rd, 7th, etc.) — not in scope per contract
-October 7th, 1970
-
-# Period-suffix on month abbreviation — not in scope per contract
-oct. 7, 1970
-oct. 7, '70
-
-# ISO with spelled/abbreviated month name (ISO uses numeric months only)
-2013-Feb-03
