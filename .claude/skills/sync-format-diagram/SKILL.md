@@ -74,39 +74,47 @@ Edit the `flowchart TD` block in `FORMAT-DETECTION.md`.
 
 ### Diagram structure rules
 
-The diagram must reflect the **exact branching order** in `classify()`:
+The diagram uses a **main diagram + sub-diagrams/tables** layout to keep each
+diagram narrow. Decision nodes in the main diagram should have **≤ 3 outgoing
+edges**. When a node would exceed this limit, replace the fan-out with a single
+edge to a subprocess node (`[["..."]]`) that links to a **table** (for simple
+key→value mappings) or a **sub-diagram** (for multi-condition branching).
+
+**Current layout:**
+
+| Section | Representation | Why |
+|---------|---------------|-----|
+| Q1 — single DIGIT_SEQ (all-digits) | Markdown **table** (digit count → format) | Simple key→value mapping |
+| Q3 — year-leading (4-digit first token) | **Sub-diagram** (separate `flowchart TD`) | Multi-condition branching on second token |
+| Q5 — short-digit-leading (non-4-digit first token) | **Sub-diagram** (separate `flowchart TD`) | Multi-condition branching on second token |
+
+The main diagram reflects the **exact branching order** in `classify()`:
 
 ```
 classify()
   ├─ single DIGIT_SEQ token?
-  │   └─ branch on digit length (10/13/16/19 → Unix; 7 → ordinal compact;
-  │       8 → compact date; 12/14 → compact datetime)
+  │   └─ [subprocess → all-digits-input table]
   ├─ first token is 4-digit DIGIT_SEQ?
-  │   └─ branch on second token type / value
-  │       (SEPARATOR "/" → Western; DOT → Western; ALPHA 年 → CJK after;
-  │        space + month name → YYYY Month DD; W_LITERAL → ISO week;
-  │        "- + W" → ISO week; "- + 3-digit" → ISO ordinal; "- + month" → YYYY-Mon-DD;
-  │        otherwise → ISO 8601)
+  │   └─ [subprocess → year-leading sub-diagram]
   ├─ first token is ALPHA_SEQ?
-  │   └─ branch on value
+  │   └─ branch on value (≤ 3 edges)
   │       (年 → CJK before; weekday + RFC-850 shape → RFC 850;
   │        weekday or month name → RFC 2822)
   └─ first token is DIGIT_SEQ (not 4 digits)?
-      └─ branch on second token
-          (SEPARATOR "/" → Western; "- + digit" → Western; "- + month" → DD-Mon-YYYY;
-           DOT → Western; otherwise → RFC 2822)
+      └─ [subprocess → short-digit-leading sub-diagram]
 ```
 
 ### Mermaid style conventions
 
 - Use `flowchart TD` (top-down)
 - Decision nodes: `{...}` — keep labels short (1–2 lines max); use `<br/>` for line breaks
+- Subprocess nodes: `[["..."]]` — used when a decision would fan out to > 3 edges
 - Leaf nodes (format families): `["..."]` — include format family name + one representative example
 - Error node: `["DateParseException"]`
 - All edges to the same format family (e.g. RFC 2822) should converge on the same node ID
 - Do not attempt to show field-extraction or assembly logic — the diagram ends at the
   format family leaf node
-- Keep the diagram ≤ ~35 nodes; if it grows beyond that, discuss with the user
+- Keep each diagram ≤ ~35 nodes; if any single diagram grows beyond that, split further
 
 ---
 

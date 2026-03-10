@@ -20,15 +20,45 @@ flowchart TD
 
     CLS --> Q1{"Single DIGIT_SEQ token?"}
 
-    Q1 -->|"10 / 13 / 16 / 19 digits"| UNIX["Unix timestamp\n1332151919 · 1384216367189 · …"]
-    Q1 -->|"7 digits"| OC["ISO ordinal compact\nYYYYddd  →  1999365"]
-    Q1 -->|"8 digits"| CD["Compact date\nYYYYMMDD  →  19990101"]
-    Q1 -->|"12 or 14 digits"| CDT["Compact datetime\nYYYYMMDDHHmm(ss)  →  20140722105203"]
-    Q1 -->|"other length"| ERR["DateParseException"]
+    Q1 -->|"Yes"| ALLDIGITS[["All-digits-input routing\n(see table below)"]]
 
     Q1 -->|"No — multiple tokens"| Q2{"First token type?"}
 
-    Q2 -->|"DIGIT_SEQ\n(4 digits)"| Q3{"Second token?"}
+    Q2 -->|"DIGIT_SEQ\n(4 digits)"| YEAR_LEAD[["Year-leading input routing\n(see sub-diagram below)"]]
+
+    Q2 -->|"ALPHA_SEQ"| Q4{"Value?"}
+    Q4 -->|"年"| CJK_B["CJK label-before\n年1999月12日31 時00分00秒00"]
+    Q4 -->|"weekday +\nDD-Mon-YY shape"| RFC850["RFC 850\nSunday, 06-Nov-94 08:49:37 GMT"]
+    Q4 -->|"weekday or\nmonth name"| RFC2822["RFC 2822 / spelled month\nFri, 01 Jan 1999 23:59:00 +0000\nMarch 14, 2024 · Oct. 7th, 1970"]
+
+    Q2 -->|"DIGIT_SEQ\n(not 4 digits)"| SHORT_DIGIT[["Short-digit-leading input routing\n(see sub-diagram below)"]]
+```
+
+### All-digits-input routing
+
+When the input consists of a single `DIGIT_SEQ` token, the format family is
+determined by digit count:
+
+| Digit count | Format family | Example |
+|-------------|--------------|---------|
+| 7 | ISO ordinal compact (YYYYddd) | `1999365` |
+| 8 | Compact date (YYYYMMDD) | `19990101` |
+| 10 | Unix timestamp (seconds) | `1332151919` |
+| 12 | Compact datetime (YYYYMMDDHHmm) | `200501011200` |
+| 13 | Unix timestamp (milliseconds) | `1384216367189` |
+| 14 | Compact datetime (YYYYMMDDHHmmss) | `20140722105203` |
+| 16 | Unix timestamp (microseconds) | `1384216367189000` |
+| 19 | Unix timestamp (nanoseconds) | `1384216367189000000` |
+| other | `DateParseException` | — |
+
+### Year-leading input routing
+
+When the first token is a 4-digit `DIGIT_SEQ`, the second token determines the
+format family:
+
+```mermaid
+flowchart TD
+    Q3{"Second token?"}
     Q3 -->|"SEPARATOR /"| W_YS["Western  YYYY/MM/DD"]
     Q3 -->|"DOT"| W_YD["Western  YYYY.MM.DD"]
     Q3 -->|"ALPHA 年"| CJK_A["CJK label-after\n1999年12月31日 00時00分00秒"]
@@ -37,18 +67,21 @@ flowchart TD
     Q3 -->|"SEPARATOR -\n+ 3-digit DIGIT_SEQ"| ISO_ORD["ISO ordinal  YYYY-DDD\n1999-001"]
     Q3 -->|"SEPARATOR -\n+ month name"| YMD_S["Spelled-month  YYYY-Mon-DD\n2013-Feb-03"]
     Q3 -->|otherwise| ISO["ISO 8601\n2024-01-15T10:30:00Z · +05:30 · [Europe/London]"]
+```
 
-    Q2 -->|"ALPHA_SEQ"| Q4{"Value?"}
-    Q4 -->|"年"| CJK_B["CJK label-before\n年1999月12日31 時00分00秒00"]
-    Q4 -->|"weekday +\nDD-Mon-YY shape"| RFC850["RFC 850\nSunday, 06-Nov-94 08:49:37 GMT"]
-    Q4 -->|"weekday or\nmonth name"| RFC2822["RFC 2822 / spelled month\nFri, 01 Jan 1999 23:59:00 +0000\nMarch 14, 2024 · Oct. 7th, 1970"]
+### Short-digit-leading input routing
 
-    Q2 -->|"DIGIT_SEQ\n(not 4 digits)"| Q5{"Second token?"}
+When the first token is a `DIGIT_SEQ` with fewer than 4 digits, the second token
+determines the format family:
+
+```mermaid
+flowchart TD
+    Q5{"Second token?"}
     Q5 -->|"SEPARATOR /"| W_DS["Western  DD/MM/YYYY"]
     Q5 -->|"SEPARATOR -\n+ DIGIT_SEQ"| W_DD["Western  DD-MM-YYYY"]
     Q5 -->|"SEPARATOR -\n+ month name"| DDM["DD-Mon-YYYY\n01-Jan-1999"]
     Q5 -->|"DOT"| W_DOT["Western  DD.MM.YYYY"]
-    Q5 -->|otherwise| RFC2822
+    Q5 -->|otherwise| RFC2822["RFC 2822 / spelled month"]
 ```
 
 ### Token types emitted by the Lexer
