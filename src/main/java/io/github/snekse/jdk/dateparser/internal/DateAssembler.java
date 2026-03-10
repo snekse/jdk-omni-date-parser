@@ -740,9 +740,8 @@ public class DateAssembler {
         if (cur < tokens.size() && tokens.get(cur).type() == TokenType.DOT) {
             cur++;
             String frac = expect(TokenType.DIGIT_SEQ).value();
-            // normalize to 9 digits (nanoseconds) — one allocation, no loop
-            if (frac.length() < 9) frac = (frac + "000000000").substring(0, 9);
-            else if (frac.length() > 9) frac = frac.substring(0, 9);
+            // normalize to 9 digits (nanoseconds)
+            frac = (frac + "000000000").substring(0, 9);
             nano = Integer.parseInt(frac);
         }
     }
