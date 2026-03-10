@@ -1,5 +1,6 @@
 package io.github.snekse.jdk.dateparser.internal;
 
+import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 
@@ -25,14 +26,24 @@ public class ZoneResolver {
      */
     public static ZoneOffset parseNumericOffset(char signChar, String digits) {
         String clean = digits.replace(":", "");
-        if (clean.length() < 3) {
-            // e.g. "00" → treat as +00:00
-            int totalSeconds = Integer.parseInt(clean) * 3600;
-            return ZoneOffset.ofTotalSeconds(signChar == '-' ? -totalSeconds : totalSeconds);
+        int len = clean.length();
+        if (len == 3 || len > 4) {
+            throw new IllegalArgumentException("invalid timezone offset: " + signChar + digits);
         }
-        int hours = Integer.parseInt(clean.substring(0, 2));
-        int minutes = Integer.parseInt(clean.substring(2, 4));
-        int totalSeconds = hours * 3600 + minutes * 60;
-        return ZoneOffset.ofTotalSeconds(signChar == '-' ? -totalSeconds : totalSeconds);
+        int totalSeconds;
+        if (len <= 2) {
+            // e.g. "00" or "5" → treat as hours only
+            totalSeconds = Integer.parseInt(clean) * 3600;
+        } else {
+            // len == 4: HHMM
+            int hours = Integer.parseInt(clean.substring(0, 2));
+            int minutes = Integer.parseInt(clean.substring(2, 4));
+            totalSeconds = hours * 3600 + minutes * 60;
+        }
+        try {
+            return ZoneOffset.ofTotalSeconds(signChar == '-' ? -totalSeconds : totalSeconds);
+        } catch (DateTimeException e) {
+            throw new IllegalArgumentException("timezone offset out of range: " + signChar + digits, e);
+        }
     }
 }

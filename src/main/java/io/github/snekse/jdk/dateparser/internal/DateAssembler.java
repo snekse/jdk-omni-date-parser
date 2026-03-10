@@ -820,12 +820,20 @@ public class DateAssembler {
                     if (next.type() == TokenType.SIGN) {
                         char sign = next.value().charAt(0);
                         cur++;
-                        offset = ZoneResolver.parseNumericOffset(sign, parseOffsetDigits());
+                        try {
+                            offset = ZoneResolver.parseNumericOffset(sign, parseOffsetDigits());
+                        } catch (IllegalArgumentException e) {
+                            throw new DateParseException(original, e.getMessage());
+                        }
                         return;
                     }
                     if (next.type() == TokenType.SEPARATOR && "-".equals(next.value())) {
                         cur++;
-                        offset = ZoneResolver.parseNumericOffset('-', parseOffsetDigits());
+                        try {
+                            offset = ZoneResolver.parseNumericOffset('-', parseOffsetDigits());
+                        } catch (IllegalArgumentException e) {
+                            throw new DateParseException(original, e.getMessage());
+                        }
                         return;
                     }
                 }
@@ -851,7 +859,11 @@ public class DateAssembler {
             char sign = t.value().charAt(0);
             cur++;
             String digits = parseOffsetDigits();
-            offset = ZoneResolver.parseNumericOffset(sign, digits);
+            try {
+                offset = ZoneResolver.parseNumericOffset(sign, digits);
+            } catch (IllegalArgumentException e) {
+                throw new DateParseException(original, e.getMessage());
+            }
             return;
         }
 
@@ -859,7 +871,11 @@ public class DateAssembler {
         if (t.type() == TokenType.SEPARATOR && "-".equals(t.value())) {
             cur++;
             String digits = parseOffsetDigits();
-            offset = ZoneResolver.parseNumericOffset('-', digits);
+            try {
+                offset = ZoneResolver.parseNumericOffset('-', digits);
+            } catch (IllegalArgumentException e) {
+                throw new DateParseException(original, e.getMessage());
+            }
         }
     }
 
