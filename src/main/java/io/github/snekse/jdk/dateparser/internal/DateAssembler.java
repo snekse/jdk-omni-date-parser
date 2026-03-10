@@ -781,6 +781,21 @@ public class DateAssembler {
                 && tokens.get(cur + 3).type() == TokenType.DOT) {
             amPm = "P".equals(upper) ? 1 : -1;
             cur += 4;
+            return;
+        }
+
+        if ("NOON".equals(upper)) {
+            if (hour != 12 || minute != 0 || second != 0)
+                throw new DateParseException(original, "noon requires exactly 12:00:00, got: " + hour + ":" + minute + ":" + second);
+            amPm = 1;   // 12 PM → stays 12
+            cur++;
+            return;
+        }
+        if ("MIDNIGHT".equals(upper)) {
+            if (hour != 12 || minute != 0 || second != 0)
+                throw new DateParseException(original, "midnight requires exactly 12:00:00, got: " + hour + ":" + minute + ":" + second);
+            amPm = -1;  // 12 AM → becomes 0
+            cur++;
         }
     }
 

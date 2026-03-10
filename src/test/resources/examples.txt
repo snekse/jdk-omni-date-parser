@@ -116,6 +116,15 @@ September 17, 2012 10:09am
 September 17, 2012 at 10:09am PST-08
 September 17, 2012, 10:10:09
 
+# noon / midnight keywords (hour must be 12)
+December 1, 1999 12:00 noon
+January 1, 1999 at 12:00 noon EST
+31 December 1999 12:00 noon UTC
+1999-01-01 12:00:00 midnight -0500
+1999/12/31 12:00 Noon CST
+1999 January 1 12:00:00 MIDNIGHT
+1999-12-31 12:00:00.000 midnight
+
 # Mon DD, YYYY — abbreviated month name (MDY)
 oct 7, 1970
 dec 7, 1970

@@ -7,11 +7,6 @@
 31.12.1999 12:00:00 Uhr MEZ
 31.12.1999 23:59:59 Uhr MEZ
 
-# "noon" keyword — not in scope per contract
-January 1, 1999 at 12:00 noon EST
-31 December 1999 12:00 noon UTC
-December 1, 1999 12:00 noon
-
 # "o'clock" keyword — not in scope per contract
 12 o'clock PM, PDT
 

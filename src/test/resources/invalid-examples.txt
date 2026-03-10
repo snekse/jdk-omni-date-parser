@@ -24,6 +24,12 @@
 13.13.2000
 0.0.2000
 
+# --- noon/midnight require hour == 12 and minute == 0 and second == 0 ---
+January 1, 1999 11:00 noon
+January 1, 1999 1:00 midnight
+1999/12/31 12:35 Noon
+1999-01-01 12:00:01 midnight
+
 # --- Truncated dates (missing required components) ---
 2014-04
 2014.03

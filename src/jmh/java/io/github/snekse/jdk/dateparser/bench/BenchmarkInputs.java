@@ -54,7 +54,7 @@ public final class BenchmarkInputs {
     );
 
     /**
-     * Full input set (26 entries): CORE plus ordinal-suffix, period-suffix, and @ separator formats.
+     * Full input set (28 entries): CORE plus ordinal-suffix, period-suffix, @ separator, and noon/midnight formats.
      * The shotgun approach requires extra preprocessing for these additions.
      */
     public static final List<String> ALL = List.of(
@@ -93,6 +93,9 @@ public final class BenchmarkInputs {
         "October 7th, 1970",
         // Period-suffix month abbreviation — requires regex preprocessing in shotgun
         "Oct. 7, 1970",
+        // noon/midnight keywords — no equivalent DateTimeFormatter pattern
+        "December 1, 1999 12:00 noon",
+        "1999-01-01 12:00:00 midnight -0500",
         // No timezone (date only)
         "1999-01-31",
         "19990101"

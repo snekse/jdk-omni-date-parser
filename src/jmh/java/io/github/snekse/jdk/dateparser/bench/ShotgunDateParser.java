@@ -26,9 +26,9 @@ import java.util.Locale;
  * <ul>
  *   <li>{@link #parseCore} — handles the 21 core inputs ({@link BenchmarkInputs#CORE}),
  *       without ordinal/period/@ preprocessing. 19 formatters. Fair baseline comparison.</li>
- *   <li>{@link #parse} — handles all 26 inputs ({@link BenchmarkInputs#ALL}), including
- *       ordinal-suffix, period-suffix, and {@code @} separator formats via extra preprocessing.
- *       24 formatters.</li>
+ *   <li>{@link #parse} — handles all 28 inputs ({@link BenchmarkInputs#ALL}), including
+ *       ordinal-suffix, period-suffix, {@code @} separator, and noon/midnight keyword formats
+ *       via extra preprocessing. 29 formatters.</li>
  * </ul>
  */
 public final class ShotgunDateParser {
@@ -104,6 +104,22 @@ public final class ShotgunDateParser {
         // "Jan. 31, 1999 @ 12:00 PM" → "Jan 31, 1999 12:00 PM"
         list.add(list.size() - 2,
             DateTimeFormatter.ofPattern("MMM d, yyyy hh:mm a", Locale.ENGLISH));
+        // noon/midnight preprocessing produces 12h AM/PM strings not covered by core formatters:
+        // "31 December 1999 12:00 PM UTC"
+        list.add(list.size() - 2,
+            DateTimeFormatter.ofPattern("d MMMM yyyy hh:mm a z", Locale.ENGLISH));
+        // "1999-01-01 12:00:00 AM -0500"
+        list.add(list.size() - 2,
+            DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss a Z", Locale.ENGLISH));
+        // "1999/12/31 12:00 PM CST"
+        list.add(list.size() - 2,
+            DateTimeFormatter.ofPattern("yyyy/MM/dd hh:mm a z", Locale.ENGLISH));
+        // "1999 January 1 12:00:00 AM"
+        list.add(list.size() - 2,
+            DateTimeFormatter.ofPattern("yyyy MMMM d hh:mm:ss a", Locale.ENGLISH));
+        // "1999-12-31 12:00:00.000 AM"
+        list.add(list.size() - 2,
+            DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss.SSS a", Locale.ENGLISH));
         ALL_FORMATTERS = java.util.List.copyOf(list);
     }
 
@@ -163,12 +179,14 @@ public final class ShotgunDateParser {
     }
 
     /**
-     * Full preprocessing: base preprocessing plus ordinal-suffix, period-suffix, and @ separator.
+     * Full preprocessing: base preprocessing plus ordinal-suffix, period-suffix, @ separator,
+     * and noon/midnight keywords.
      * <ul>
      *   <li>Ordinal suffixes stripped: {@code "7th"} → {@code "7"}, {@code "1st"} → {@code "1"}</li>
      *   <li>Abbreviated-month periods stripped: {@code "Oct."} → {@code "Oct"}</li>
      *   <li>{@code " @ "} → {@code " "} (spaced @ separator, e.g. {@code "Jan 31, 1999 @ 12:00 PM"})</li>
      *   <li>{@code "@"} → {@code "T"} (unspaced @ separator, e.g. {@code "2013-Feb-03@12:30:00"})</li>
+     *   <li>{@code "noon"} → {@code "PM"}, {@code "midnight"} → {@code "AM"} (case-insensitive)</li>
      * </ul>
      */
     private static String preprocessAll(String input) {
@@ -176,6 +194,8 @@ public final class ShotgunDateParser {
             .replaceAll("(?i)(\\d+)(st|nd|rd|th)\\b", "$1")
             .replaceAll("(?i)\\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\\.", "$1")
             .replace(" @ ", " ")
-            .replace("@", "T");
+            .replace("@", "T")
+            .replaceAll("(?i)\\bnoon\\b", "PM")
+            .replaceAll("(?i)\\bmidnight\\b", "AM");
     }
 }
