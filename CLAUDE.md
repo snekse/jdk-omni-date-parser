@@ -69,7 +69,7 @@ Parameterized tests in `ExamplesTxtTest` read from `src/test/resources/`:
 - `.github/workflows/ci.yml` — runs `./gradlew build` on every push/PR to `main`
 - `.github/workflows/release.yml` — triggers on GitHub Release creation; extracts version from tag (e.g. `v0.1.0` → `0.1.0`), signs artifacts, publishes to Maven Central
 
-**To release**: Create a GitHub Release with tag `v{version}` → workflow fires automatically → go to https://central.sonatype.com to confirm the deployment → click Publish (first release is `USER_MANAGED`; switch to `publishAndReleaseToMavenCentral` in `release.yml` after the first successful release for fully automatic publishing).
+**To release**: Create a GitHub Release with tag `v{version}` → workflow fires automatically → artifacts appear on Maven Central within ~30 minutes.
 
 **Signed local dry-run** (validates signing before a real release):
 ```bash
