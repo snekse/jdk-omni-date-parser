@@ -10,6 +10,7 @@ jobs:
     permissions:
       contents: read
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/gradle-build
 
       - name: Extract version from tag

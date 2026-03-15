@@ -11,6 +11,7 @@ jobs:
     permissions:
       contents: read
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/gradle-build
 
   dependency-graph:
@@ -19,4 +20,5 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/gradle-dependency-graph
