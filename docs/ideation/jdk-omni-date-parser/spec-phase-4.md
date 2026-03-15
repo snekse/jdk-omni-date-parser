@@ -3,6 +3,9 @@
 **Contract**: ./contract.md
 **Estimated Effort**: M
 
+**IMPORTANT**: Implementing this spec is meant to be interactive.  There will be many things an AI agent cannot do, or maybe just shouldn't do. 
+You will frequently communicate with the user and request tasks be done by a human and frequently get verification for work you are doing and assumptions being made.
+
 ## Technical Approach
 
 Phase 4 completes the Maven Central publishing pipeline. Phase 3 scaffolded the `publishing` block and POM metadata in `build.gradle.kts`; this phase wires up GPG signing, the Central Portal deployment API, CI automation via GitHub Actions, and versioning.

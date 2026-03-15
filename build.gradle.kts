@@ -2,17 +2,14 @@ plugins {
     java
     `java-library`
     id("me.champeau.jmh") version "0.7.2"
-    `maven-publish`
-    signing
+    id("com.vanniktech.maven.publish") version "0.36.0"
 }
 
 group = "io.github.snekse"
-version = "0.1.0-SNAPSHOT"
+version = findProperty("releaseVersion")?.toString() ?: "dev-SNAPSHOT"
 
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(21) }
-    withJavadocJar()
-    withSourcesJar()
 }
 
 repositories {
@@ -44,39 +41,31 @@ jmh {
     benchmarkMode = listOf("thrpt")
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
-            groupId = "io.github.snekse"
-            artifactId = "jdk-omni-date-parser"
-            version = project.version.toString()
+mavenPublishing {
+    publishToMavenCentral()
+    signAllPublications()
 
-            pom {
-                name = "jdk-omni-date-parser"
-                description = "A lenient universal date parser for JVM languages"
-                url = "https://github.com/snekse/jdk-omni-date-parser"
-                licenses {
-                    license {
-                        name = "Apache License, Version 2.0"
-                        url = "https://www.apache.org/licenses/LICENSE-2.0"
-                    }
-                }
-                developers {
-                    developer { id = "snekse" }
-                }
-                scm {
-                    connection = "scm:git:git://github.com/snekse/jdk-omni-date-parser.git"
-                    url = "https://github.com/snekse/jdk-omni-date-parser"
-                }
+    pom {
+        name.set("jdk-omni-date-parser")
+        description.set("A lenient universal date parser for JVM languages")
+        url.set("https://github.com/snekse/jdk-omni-date-parser")
+        licenses {
+            license {
+                name.set("Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0")
             }
         }
-    }
-    repositories {
-        // TODO: configure Sonatype OSSRH when publishing
+        developers {
+            developer {
+                id.set("snekse")
+                name.set("Derek Eskens")
+                url.set("https://github.com/snekse")
+            }
+        }
+        scm {
+            url.set("https://github.com/snekse/jdk-omni-date-parser")
+            connection.set("scm:git:git://github.com/snekse/jdk-omni-date-parser.git")
+            developerConnection.set("scm:git:ssh://github.com:snekse/jdk-omni-date-parser.git")
+        }
     }
 }
-
-// Signing — required for Maven Central
-// signing { sign(publishing.publications["mavenJava"]) }
-// TODO: uncomment and configure signing key when publishing
