@@ -57,17 +57,9 @@ OmniDateParser parser = new OmniDateParser(
 
 ## Installation
 
-Not yet published to Maven Central. For now, install locally:
-
-```bash
-./gradlew publishToMavenLocal
-```
-
-Then add the dependency:
-
 **Gradle (Kotlin DSL)**
 ```kotlin
-implementation("io.github.snekse:jdk-omni-date-parser:0.1.0-SNAPSHOT")
+implementation("io.github.snekse:jdk-omni-date-parser:0.1.0")
 ```
 
 **Maven**
@@ -75,7 +67,7 @@ implementation("io.github.snekse:jdk-omni-date-parser:0.1.0-SNAPSHOT")
 <dependency>
     <groupId>io.github.snekse</groupId>
     <artifactId>jdk-omni-date-parser</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
 </dependency>
 ```
 

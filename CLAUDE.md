@@ -61,6 +61,24 @@ Parameterized tests in `ExamplesTxtTest` read from `src/test/resources/`:
 - `defaultZone` — `ZoneOffset.UTC` (default) — applied when input has no timezone
 - `pivotYear` — `70` (default) — two-digit year cutoff: ≤70 → 20xx, >70 → 19xx
 
+## Publishing & Release
+
+**Versioning**: Tag-driven. `version` in `build.gradle.kts` falls back to `dev-SNAPSHOT` for local builds — never update it manually. Releases are controlled entirely by git tags via GitHub Actions.
+
+**Workflows**:
+- `.github/workflows/ci.yml` — runs `./gradlew build` on every push/PR to `main`
+- `.github/workflows/release.yml` — triggers on GitHub Release creation; extracts version from tag (e.g. `v0.1.0` → `0.1.0`), signs artifacts, publishes to Maven Central
+
+**To release**: Create a GitHub Release with tag `v{version}` → workflow fires automatically → artifacts appear on Maven Central within ~30 minutes.
+
+**Signed local dry-run** (validates signing before a real release):
+```bash
+./scripts/publish-local-signed.sh [version]
+```
+Prompts for GPG key ID and passphrase interactively. Verify `.asc` files appear in `~/.m2/repository/io/github/snekse/jdk-omni-date-parser/{version}/`.
+
+**Required GitHub Actions secrets**: `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD`, `GPG_SIGNING_KEY`, `GPG_SIGNING_PASSWORD`
+
 ## Scope Boundaries
 
 **Supported**: ISO 8601, RFC 2822/1123/850, RFC 9557 IXDTF, Western numeric (slash/dash/dot), spelled-out English months, 12-hour AM/PM, named TZ abbreviations, UTC offsets, CJK date separators, compact numeric, Unix timestamps.
