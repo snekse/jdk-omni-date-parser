@@ -21,7 +21,7 @@ final class TzAbbreviations {
 
     private static final Map<String, ZoneId> MAP;
     static {
-        Map<String, ZoneId> m = new HashMap<>(64);
+        Map<String, ZoneId> m = new HashMap<>(128);
         // Seed with Java's legacy SHORT_IDS — covers ACT, AET, AGT, BET, CNT,
         // CTT, ECT, IET, MIT, NET, PLT, PNT, PRT, VST and others.
         ZoneId.SHORT_IDS.forEach((k, v) -> m.put(k, ZoneId.of(v)));

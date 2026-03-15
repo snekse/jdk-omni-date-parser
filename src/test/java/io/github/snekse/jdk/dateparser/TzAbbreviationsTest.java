@@ -1,5 +1,6 @@
 package io.github.snekse.jdk.dateparser;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -37,6 +38,7 @@ class TzAbbreviationsTest {
     }
 
     // ISO 8601 trailing Z tested separately because the lexer tokenizes it differently
+    @Test
     void z_suffix_in_iso_resolves_to_utc() {
         var result = OmniDateParser.toZonedDateTime("1999-06-15T12:00:00Z");
         assertEquals("Z", result.getZone().getId());
@@ -48,18 +50,18 @@ class TzAbbreviationsTest {
 
     @ParameterizedTest(name = "{0} -> {1}  (not SHORT_IDS: {2})")
     @CsvSource({
-        // abbr,  our zone,                        SHORT_IDS zone (comment only)
-        "EST,  America/New_York,                 America/Panama",
-        "AST,  America/Halifax,                  America/Anchorage",
-        "BST,  Europe/London,                    Asia/Dhaka",
-        "ART,  America/Argentina/Buenos_Aires,   Africa/Cairo",
-        "NST,  America/St_Johns,                 Pacific/Auckland",
-        "MST,  America/Denver,                   America/Phoenix",
-        "SST,  Pacific/Pago_Pago,                Pacific/Guadalcanal",
+        // abbr, our zone, SHORT_IDS zone (comment only)
+        "EST, America/New_York, America/Panama",
+        "AST, America/Halifax, America/Anchorage",
+        "BST, Europe/London, Asia/Dhaka",
+        "ART, America/Argentina/Buenos_Aires, Africa/Cairo",
+        "NST, America/St_Johns, Pacific/Auckland",
+        "MST, America/Denver, America/Phoenix",
+        "SST, Pacific/Pago_Pago, Pacific/Guadalcanal",
     })
     void short_ids_conflict_uses_our_override(String abbr, String expectedZone, String ignoredShortIdsZone) {
         var result = OmniDateParser.toZonedDateTime(D + abbr);
-        assertEquals(expectedZone.strip(), result.getZone().getId());
+        assertEquals(expectedZone, result.getZone().getId());
     }
 
     // -------------------------------------------------------------------------
@@ -89,29 +91,29 @@ class TzAbbreviationsTest {
     @ParameterizedTest(name = "{0} -> {1}  (custom addition)")
     @CsvSource({
         // DST variants of North American zones
-        "EDT,  America/New_York",
-        "CDT,  America/Chicago",
-        "MDT,  America/Denver",
-        "PDT,  America/Los_Angeles",
-        "ADT,  America/Halifax",
-        "NDT,  America/St_Johns",
+        "EDT, America/New_York",
+        "CDT, America/Chicago",
+        "MDT, America/Denver",
+        "PDT, America/Los_Angeles",
+        "ADT, America/Halifax",
+        "NDT, America/St_Johns",
         "AKST, America/Anchorage",
         "AKDT, America/Anchorage",
         // Brazil / South America
-        "BRT,  America/Sao_Paulo",
+        "BRT, America/Sao_Paulo",
         // Europe DST variants and extras
-        "WET,  Europe/Lisbon",
+        "WET, Europe/Lisbon",
         "WEST, Europe/Lisbon",
         "CEST, Europe/Paris",
         "EEST, Europe/Helsinki",
-        "MSK,  Europe/Moscow",
-        "TRT,  Europe/Istanbul",
+        "MSK, Europe/Moscow",
+        "TRT, Europe/Istanbul",
         // Asia regional
-        "HKT,  Asia/Hong_Kong",
-        "KST,  Asia/Seoul",
-        "SGT,  Asia/Singapore",
-        "ICT,  Asia/Bangkok",
-        "PHT,  Asia/Manila",
+        "HKT, Asia/Hong_Kong",
+        "KST, Asia/Seoul",
+        "SGT, Asia/Singapore",
+        "ICT, Asia/Bangkok",
+        "PHT, Asia/Manila",
         // Oceania
         "NZDT, Pacific/Auckland",
         "NZST, Pacific/Auckland",
@@ -119,13 +121,13 @@ class TzAbbreviationsTest {
         "AWST, Australia/Perth",
         "ACDT, Australia/Adelaide",
         // Africa
-        "WAT,  Africa/Lagos",
+        "WAT, Africa/Lagos",
         "SAST, Africa/Johannesburg",
         // Pacific
-        "WST,  Pacific/Apia",
+        "WST, Pacific/Apia",
     })
     void custom_addition_resolves_correctly(String abbr, String expectedZone) {
         var result = OmniDateParser.toZonedDateTime(D + abbr);
-        assertEquals(expectedZone.strip(), result.getZone().getId());
+        assertEquals(expectedZone, result.getZone().getId());
     }
 }
